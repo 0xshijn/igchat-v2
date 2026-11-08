@@ -1,318 +1,210 @@
-# igchat-v2 - Sơ đồ luồng async
+# igchat-v2 - Sơ đồ luồng xử lý v3.0.0
 
-[README](README.md) | [Tài liệu API](DOCS.md) | [Mindmap](mindmap-mermaid.md)
+[README](README.md) | [README (EN)](README_EN.md) | [Tài liệu API](DOCS.md) | [Mindmap](mindmap-mermaid.md) | [Bridge Docs](bridge/README.md)
 
-Các sơ đồ dưới đây mô tả đường đi của dữ liệu khi ứng dụng chạy. Worker thread được dùng ở những chỗ gọi thư viện blocking; các feature HTTP chạy async qua `httpx`.
+Các sơ đồ dưới đây mô tả chi tiết đường đi của dữ liệu và luồng thực thi trong kiến trúc `igchat-v2` v3.0.0. Toàn bộ tác vụ I/O được xây dựng trên `async`/`await` với connection pooling (`httpx.AsyncClient`) và tiến trình Go companion (`igchat-bridge.exe`) thông qua giao thức line-delimited JSON-RPC 2.0.
 
-## 1. 🛤️ Luồng thư mục và dependency
+---
+
+## 1. 🛤️ Luồng kiến trúc và quan hệ phụ thuộc
 
 ```mermaid
 flowchart TD
-    App[src/main.py hoặc application] --> Core[src/_core]
-    App --> Features[src/_features]
-    App --> Messaging[src/_messaging]
+    App[src/main.py / root main.py] --> Bot[igchat_v2.bot]
+    Bot --> Direct[igchat_v2.direct]
+    Bot --> Social[igchat_v2.social]
+    Bot --> Auth[igchat_v2.auth]
+    Bot --> Bridge[igchat_v2.bridge]
 
-    Features --> Core
-    Messaging --> Core
+    Direct --> Bridge
+    Direct --> Core[igchat_v2.core]
+    Social --> Core
+    Auth --> Core
+    Bridge --> Core
 
-    Core --> HTTP[httpx]
-    Messaging --> MQTT[paho-mqtt]
-    Messaging --> PyBridge[Python bridge wrapper]
-    PyBridge <--> GoBridge[bridge-e2ee Go process]
-    GoBridge --> Meta[mautrix-meta submodule]
+    Core --> HTTP[httpx.AsyncClient]
+    Bridge <--> GoBridge[igchat-bridge.exe Go Subprocess]
+    GoBridge --> Instameow[go.mau.fi/mautrix-meta/pkg/instameow]
+    Instameow --> IGDirect[Instagram Direct DGW / WebSocket / Slide GraphQL]
 
-    Tests[tests/] --> Core
-    Tests --> Features
-    Tests --> Messaging
+    Tests[tests/] --> Bot
+    Tests --> Direct
+    Tests --> Social
+    Tests --> Auth
+    Tests --> Bridge
+    Tests --> Core
 ```
 
-Chiều phụ thuộc đi từ feature/messaging xuống core. `_core` không import ngược `_features` hoặc `_messaging`.
+Phụ thuộc một chiều nghiêm ngặt: các module tính năng (`direct`, `social`, `bot`) phụ thuộc vào `core`, `auth` và `bridge`. Module `core` hoàn toàn độc lập và không bao giờ import ngược các tầng phía trên.
 
-## 2. 💾 Session bootstrap
+---
+
+## 2. 💾 Khởi tạo phiên làm việc (Session Bootstrap)
 
 ```mermaid
 flowchart TD
-    A[Cookie string hoặc SessionStorage] --> B{Có cookie không?}
-    B -- Không --> C[Log thiếu cookie và trả None]
+    A[Cookie string / SessionStorage] --> B{Có cookie hợp lệ?}
+    B -- Không --> C[Raise ValueError / Ghi log cảnh báo]
     B -- Có --> D[parse_cookie_string]
-    D --> E[GET instagram.com qua httpx]
-    E --> F{HTTP thành công?}
-    F -- Không --> G[Log lỗi an toàn và trả None]
-    F -- Có --> H[Parse token từ HTML]
-    H --> I{Đủ field bắt buộc và IGSID là số?}
-    I -- Không --> J[Log tên field thiếu và trả None]
-    I -- Có --> K[dataIGS]
-    K --> L[_features]
-    K --> M[_messaging]
+    D --> E{Có ds_user_id & sessionid?}
+    E -- Không --> F[Raise ValueError: thiếu sessionid/ds_user_id]
+    E -- Có --> G[Tạo đối tượng InstagramSession]
+    G --> H[GET /api/v1/direct_v2/inbox/ via httpx]
+    H --> I{HTTP Status == 200?}
+    I -- Không --> J[Cảnh báo session chưa verify / Checkpoint]
+    I -- Có --> K[Trích xuất user info & CSRF token]
+    K --> L[Lưu phiên an toàn qua FileSessionStorage]
+    L --> M[Sẵn sàng cho Direct & Social pipelines]
 ```
 
-`dataIGS` chứa cookie và CSRF token; không ghi object này vào log hoặc chia sẻ trong báo lỗi.
+`InstagramSession` được bảo vệ nghiêm ngặt: thông tin nhạy cảm (`sessionid`, token) luôn bị ẩn hoặc thay thế bằng `[REDACTED]` khi xuất ra log hoặc console.
 
-## 3. 🌍 HTTP feature async
+---
+
+## 3. 💬 Gửi tin nhắn Direct (Slide GraphQL / DGW)
 
 ```mermaid
 sequenceDiagram
-    participant App
-    participant Feature
-    participant Utils as _core._utils
-    participant Transport as _core._http
-    participant Client as httpx.AsyncClient
-    participant IG as Instagram endpoint
+    participant App as Bot / User Application
+    participant Direct as igchat_v2.direct.messages
+    participant Actions as igchat_v2.bridge.actions.BridgeActions
+    participant Process as igchat_v2.bridge.process.BridgeProcess
+    participant Bridge as igchat-bridge.exe (Go)
+    participant IG as Instagram Direct Infrastructure
 
-    App->>Feature: await func(dataIGS, ..., client=client)
-    Feature->>Feature: validate input
-    Feature->>Feature: build request/form
-    Feature->>Utils: send_request_async hoặc post_form_json_async
-    Utils->>Transport: post_async/get_async
-    Transport->>Client: await request
-    Client->>IG: HTTPS request
-    IG-->>Client: HTTP response
-    Client-->>Transport: httpx.Response
-    Transport-->>Utils: response
-    Utils->>Utils: raise_for_status + parse JSON
-    Utils-->>Feature: payload
-    Feature->>Feature: validate error/data fields
-    Feature-->>App: success hoặc error dict
+    App->>Direct: await send_text_message(actions, thread_id, text, reply_to)
+    Direct->>Direct: Validate thread_id và text non-empty
+    Direct->>Actions: await actions.send_message(thread_id, text, reply_to)
+    Actions->>Process: await process.call("send_message", params)
+    Process->>Bridge: Gửi JSON-RPC qua stdin (line-delimited)
+    Bridge->>Bridge: Parse request & validate params
+    Bridge->>IG: Dispatch Direct Message qua instameow DGW
+    IG-->>Bridge: Direct Send ACK (message_id, timestamp)
+    Bridge-->>Process: JSON-RPC response {"result": {"message_id": ...}} qua stdout
+    Process-->>Actions: Dict payload
+    Actions-->>Direct: SendResult(success=True, message_id=...)
+    Direct-->>App: SendResult
 ```
 
-Nếu không truyền client, transport tạo client tạm và đóng sau mỗi call. Khi gọi nhiều request, ứng dụng nên tạo một `AsyncClient` dùng chung và đóng khi dùng xong.
+Mọi hành động nhắn tin Direct (gửi, chỉnh sửa, thu hồi, thả reaction) đều đi qua pipeline JSON-RPC được kiểm soát chặt chẽ với timeout và generation fencing.
 
-## 4. 💬 Gửi tin thường
+---
+
+## 4. 📡 Luồng sự kiện thời gian thực (DirectListener Event Loop)
+
+```mermaid
+sequenceDiagram
+    participant IG as Instagram Direct (Meta)
+    participant Bridge as igchat-bridge.exe (Go)
+    participant Reader as Stdin/Stdout Reader Thread
+    participant Listener as igchat_v2.direct.listener.DirectListener
+    participant Loop as asyncio Event Loop
+    participant Bot as igchat_v2.bot.InstagramBot
+
+    IG-->>Bridge: DGW WebSocket Push Event (New message, reaction, typing)
+    Bridge->>Bridge: Sanitize payload & format JSON-RPC event
+    Bridge-->>Reader: Line JSON string qua stdout
+    Reader->>Reader: Parse JSON envelope
+    Reader->>Loop: loop.call_soon_threadsafe(dispatch_event)
+    Loop->>Listener: _handle_bridge_event(event)
+    Listener->>Bot: on_message(MessageEvent)
+    Bot->>Bot: Deduplicate qua Bounded LRU cache
+    Bot->>Bot: Rate limit check (PerUserRateLimiter)
+    Bot->>Bot: Match command & dispatch async handler
+```
+
+`DirectListener` nhận sự kiện thời gian thực từ Go bridge mà không tạo blocking thread trong Python event loop. Mọi message được chuẩn hóa thành `MessageEvent` strongly-typed.
+
+---
+
+## 5. 📎 Quy trình tải lên và gửi Media (SSRF Guard & rupload)
 
 ```mermaid
 flowchart TD
-    A[SendAPI.send] --> B[Validate thread, type, reply, attachment]
-    B --> C{Input hợp lệ?}
-    C -- Không --> D[Raise ValueError]
-    C -- Có --> E[Tạo form mới cho call]
-    E --> F[Sinh threading/offline ID]
-    F --> G[POST /messaging/send qua httpx]
-    G --> H[Strip prefix for loop]
-    H --> I{Payload có message_id?}
-    I -- Có --> J[success + messageID + timestamp]
-    I -- Không --> K[error + description + code]
-```
-
-Mỗi call có form riêng, không sửa chung một object giữa các request. `sender.results` chỉ giữ snapshot cho code tương thích cũ.
-
-## 5. 📎 Upload attachment
-
-```mermaid
-flowchart TD
-    A[Path hoặc list path] --> B[Validate danh sách và file tồn tại]
-    B --> C[Open file + đoán MIME]
-    C --> D{Có AsyncClient do caller truyền?}
-    D -- Có --> E[Multipart POST native async]
-    D -- Không --> F[Compatibility upload trong worker thread]
-    E --> G[Parse JSON/prefix]
-    F --> G
-    G --> H{metadata item là dict?}
-    H -- Không --> I[None hoặc error diagnostics]
-    H -- Có --> J[Extract attachment ID, URL, MIME]
-    J --> K[Normalize typeAttachment]
-    K --> L[Đóng toàn bộ file handle]
-    I --> L
-```
-
-`uploadID` khác `attachmentID`. Khi gửi tin, dùng `attachmentID` hợp lệ từ kết quả upload.
-
-## 6. 📡 Listener MQTT thường
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant Listener as listeningEvent
-    participant Worker as MQTT worker
-    participant Queue as bounded message queue
-    participant IG as edge-chat.instagram.com
-
-    App->>Listener: create_task(connect_mqtt())
-    Listener->>Worker: asyncio.to_thread(connect_mqtt_blocking)
-    Worker->>IG: TLS WebSocket connect + subscribe
-    IG-->>Worker: MQTT deltas
-    Worker->>Worker: parse toàn bộ deltas
-    Worker->>Queue: enqueue từng event
-    alt queue đầy
-        Queue->>Queue: drop oldest
-        Worker->>Worker: droppedMessages += 1
-    end
-    App->>Listener: await get_message(timeout)
-    Listener->>Queue: dequeue
-    Queue-->>App: normalized event hoặc None
-    App->>Listener: await disconnect()
-    Listener->>Worker: signal stop
-```
-
-Vòng ngoài của listener xử lý reconnect. Callback chỉ cập nhật trạng thái, không gọi lại connection setup bằng đệ quy.
-
-## 7. 🔐 E2EE startup
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant Listener as listeningE2EEEvent
-    participant Process as _BridgeProcess
-    participant Go as igchat-bridge-e2ee
-    participant Meta as Instagram Direct E2EE
-
-    App->>Listener: đăng ký on_message callback
-    App->>Listener: create_task(connect_mqtt())
-    Listener->>Listener: resolve binary
-    Listener->>Process: spawn subprocess
-    Process->>Go: start stdin/stdout JSON-RPC
-    Listener->>Process: newClient(cookie config)
-    Process->>Go: request
-    Go-->>Process: response
-    Listener->>Process: connect
-    Go->>Meta: regular Instagram connect
-    Meta-->>Go: user/session info
-    Go-->>Listener: connected
-    Listener->>Listener: set connected event
-    Listener->>Process: connectE2EE
-    Go->>Meta: E2EE handshake
-    Meta-->>Go: ready
-    Go-->>Listener: e2eeConnected
-    Listener->>Listener: set e2ee ready event
-    App->>Listener: wait_until_connected qua to_thread
-    Listener-->>App: True
-```
-
-Gửi trước readiness có thể đụng lúc bridge chưa kết nối xong. `wait_until_connected` là hàm blocking; ứng dụng async gọi qua `asyncio.to_thread`.
-
-## 8. 🔐 E2EE event delivery
-
-```mermaid
-sequenceDiagram
-    participant IG as Instagram Direct
-    participant Go as Go bridge
-    participant Reader as Python reader thread
-    participant Poll as bridge poll loop
-    participant Callback as on_message callback
-    participant EventLoop as asyncio loop
-    participant Queue as asyncio.Queue
-    participant Bot
-
-    IG-->>Go: encrypted/regular event
-    Go->>Go: decrypt + normalize
-    Go-->>Reader: JSON line with event
-    Reader->>Poll: thread-safe event queue
-    Poll->>Callback: callback(event)
-    Callback->>EventLoop: call_soon_threadsafe(enqueue)
-    EventLoop->>Queue: put_nowait
-    Bot->>Queue: await get()
-    Queue-->>Bot: event
-    Bot->>Bot: filter, dedupe, dispatch command
-```
-
-Callback không `await` handler. Ứng dụng phải chuyển event về event loop, như cách làm trong `src/main.py`.
-
-## 9. 🔐 E2EE send/action
-
-```mermaid
-flowchart LR
-    A[Async bot handler] --> B{Action}
-    B -- Text E2EE --> C[listener.send_e2ee_message]
-    B -- Text thường --> D[listener.send_message]
-    B -- Edit/unsend/media --> E[BridgeActions async method]
-    C --> F[_BridgeProcess.call]
-    D --> F
+    A[Đường dẫn file cục bộ hoặc URL công khai] --> B{Nguồn media?}
+    B -- URL từ xa --> C[validate_public_http_url: chặn loopback, private IP, SSRF]
+    C --> D[download_public_bytes: bounded size & content-type check]
+    B -- File cục bộ --> E[Kiểm tra file tồn tại & định dạng media]
+    D --> F[Đọc bytes media & xác định MIME]
     E --> F
-    F --> G[Worker chờ call_blocking]
-    G --> H[JSON-RPC request]
-    H --> I[Go dispatcher]
-    I --> J[Messenger protocol]
-    J --> I
-    I --> H
-    H --> G
-    G --> F
-    F --> A
+    F --> G[Gửi qua Bridge upload_media RPC hoặc Instagram rupload API]
+    G --> H[POST rupload.instagram.com với X-Instagram-Rupload-Params]
+    H --> I{Upload thành công?}
+    I -- Không --> J[Raise MediaUploadError với chẩn đoán an toàn]
+    I -- Có --> K[Nhận upload_id / media_id]
+    K --> L[Dispatch tin nhắn Direct kèm media attachment]
 ```
 
-Dữ liệu media được encode Base64 khi gửi qua RPC. Giới hạn JSON-RPC request là 150 MiB.
+Bảo vệ SSRF toàn diện: không cho phép tải media từ `127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.0.0/16` hoặc domain nội bộ.
 
-## 10. 🌉 Bridge watchdog
+---
+
+## 6. 🌉 Cơ chế tự phục hồi và Reconnect Bridge
 
 ```mermaid
 flowchart TD
-    A[Bridge process exit] --> B{Listener đang stop?}
-    B -- Có --> C[Kết thúc watchdog]
-    B -- Không --> D{Đã đủ 5 retry?}
-    D -- Có --> E[Emit bridge_fatal]
-    D -- Không --> F[Đợi exponential backoff]
-    F --> G[Respawn process]
-    G --> H[Replay newClient + connect + connectE2EE]
-    H --> I{Thành công?}
-    I -- Có --> J[Reset retry count]
-    I -- Không --> K[Tăng retry]
-    J --> A
-    K --> D
+    A[Mất kết nối WebSocket hoặc tiến trình Bridge thoát] --> B{Trạng thái dừng chủ động?}
+    B -- Có --> C[Dọn dẹp tài nguyên và kết thúc]
+    B -- Không --> D{Số lần thử lại <= max_retries?}
+    D -- Không --> E[Kích hoạt BridgeFatalError và thông báo admin]
+    D -- Có --> F[Tính thời gian chờ exponential backoff + jitter]
+    F --> G[Tạm dừng (asyncio.sleep)]
+    G --> H[Khởi động lại subprocess igchat-bridge.exe]
+    H --> I[Gửi handshake connect kèm session cookies]
+    I --> J{Kết nối thành công?}
+    J -- Có --> K[Reset bộ đếm retry về 0 & tiếp tục lắng nghe]
+    J -- Không --> L[Tăng số lần retry]
+    L --> D
 ```
 
-Ứng dụng vẫn cần theo dõi listener task và `bridge_fatal`. Watchdog không sửa được credential hết hạn hoặc binary hỏng.
+Bộ điều phối `ReconnectPolicy` tự động tính toán thời gian chờ lũy thừa kèm jitter ngẫu nhiên để tránh hiện tượng thundering herd khi máy chủ Instagram gặp sự cố mạng tạm thời.
 
-## 11. 🤖 Bot command flow
+---
+
+## 7. 🤖 Bộ định tuyến lệnh Bot và Kiểm soát tốc độ
 
 ```mermaid
 flowchart TD
-    A[Raw bridge event] --> B{Type message/e2eeMessage?}
-    B -- Không --> C[Log lifecycle hoặc bỏ qua]
-    B -- Có --> D[Normalize message]
-    D --> E{Có message ID và chưa thấy?}
-    E -- Không --> F[Bỏ qua duplicate]
-    E -- Có --> G{Sender là bot hoặc body rỗng?}
-    G -- Có --> H[Bỏ qua]
-    G -- Không --> I{Body bắt đầu bằng prefix?}
-    I -- Không --> J[Không dispatch]
-    I -- Có --> K[Parse command + argument]
-    K --> L{Handler tồn tại?}
-    L -- Không --> M[Log unknown command]
-    L -- Có --> N[await handler]
-    N --> O{Có chatJid?}
-    O -- Có --> P[send_e2ee_message]
-    O -- Không --> Q[send_message bằng threadId]
+    A[Nhận MessageEvent mới] --> B{Đã từng xử lý? (LRU Cache)}
+    B -- Đã xử lý --> C[Bỏ qua - chống lặp lệnh]
+    B -- Chưa xử lý --> D[Đánh dấu message_id vào LRU]
+    D --> E{Tin nhắn từ chính Bot hoặc rỗng?}
+    E -- Có --> F[Bỏ qua]
+    E -- Không --> G{Nội dung bắt đầu bằng command prefix?}
+    G -- Không --> H[Bỏ qua]
+    G -- Có --> I[Tách tên lệnh và tham số]
+    I --> J{Người dùng bị rate-limit? (PerUserRateLimiter)}
+    J -- Bị hạn chế --> K[Gửi thông báo chờ hoặc bỏ qua]
+    J -- Hợp lệ --> L{Lệnh yêu cầu quyền Admin?}
+    L -- Có & Không phải Admin --> M[Từ chối thực thi: Unauthorized]
+    L -- Không hoặc Là Admin --> N[Thực thi async command handler]
 ```
 
-## 12. 📌 Shutdown
+Bộ nhớ đệm LRU giới hạn dung lượng lưu trữ các message ID gần nhất để loại bỏ trùng lặp khi mạng chập chờn. Rate limiter theo từng người dùng ngăn chặn spam và bảo vệ tài khoản Instagram khỏi bị hạn chế tác vụ.
+
+---
+
+## 8. 🛑 Trình tự tắt ứng dụng an toàn (Graceful Shutdown)
 
 ```mermaid
 sequenceDiagram
-    participant Signal as Ctrl+C/cancel
-    participant App
-    participant Listener
-    participant Task
+    participant OS as Hệ điều hành (SIGINT / SIGTERM / Ctrl+C)
+    participant App as Application Runner (main.py)
+    participant Bot as InstagramBot
+    participant Listener as DirectListener
+    participant Bridge as BridgeProcess
     participant Client as httpx.AsyncClient
 
-    Signal->>App: cancellation
-    App->>Listener: stop() hoặc await disconnect()
-    Listener->>Task: signal worker/subprocess
-    App->>Task: await với timeout
-    alt task không dừng
-        App->>Task: cancel
-        App->>Task: await cancellation
-    end
-    App->>Client: exit async context
+    OS->>App: Gửi tín hiệu dừng (Signal)
+    App->>Bot: await bot.stop()
+    Bot->>Listener: await listener.stop()
+    Listener->>Bridge: await bridge.disconnect()
+    Bridge->>Bridge: Gửi RPC disconnect & terminate subprocess
+    Listener-->>Bot: Listener dừng hoàn tất
+    Bot->>Client: await client.aclose()
+    Client-->>Bot: Đóng toàn bộ connection pool
+    Bot-->>App: Bot dừng an toàn
+    App->>OS: Thoát tiến trình với mã 0
 ```
 
-Chờ handler dùng xong rồi mới đóng client. Dừng và đợi listener task kết thúc trước khi thoát event loop.
-
-## 13. 🩺 Error boundary
-
-```mermaid
-flowchart TD
-    A[Input] --> B{Validation}
-    B -- Sai --> C[ValueError/NotImplementedError]
-    B -- Đúng --> D[Transport]
-    D --> E{HTTP/RPC error?}
-    E -- Có --> F[HTTPError/BridgeError hoặc error dict]
-    E -- Không --> G[Parser]
-    G --> H{Schema hợp lệ?}
-    H -- Không --> I[Error dict có message/excerpt an toàn]
-    H -- Có --> J[Domain result]
-    C --> K[Application boundary]
-    F --> K
-    I --> K
-    J --> K
-    K --> L[Log không chứa secret + quyết định retry/reply]
-```
-
-Không bắt mọi `Exception` rồi trả `{}`: caller sẽ không biết input sai, mất mạng, lỗi xác thực hay response sai schema. Giữ thông tin phân loại lỗi, nhưng không kèm secret.
+Mọi kết nối mạng và tiến trình Go được dọn dẹp sạch sẽ, không để lại tiến trình mồ côi (zombie processes) hay rò rỉ socket khi người dùng dừng chương trình.

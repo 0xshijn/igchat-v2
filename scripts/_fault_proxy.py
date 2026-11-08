@@ -15,15 +15,11 @@ from urllib.parse import urlsplit
 
 MAX_HEADER_BYTES = 8 * 1024
 MAX_RELAY_BUFFER = 64 * 1024
-META_DOMAINS = (
+IG_DOMAINS = (
     "instagram.com",
     "cdninstagram.com",
-    "facebook.com",
-    "messenger.com",
     "fbcdn.net",
     "fbsbx.com",
-    "whatsapp.net",
-    "whatsapp.com",
 )
 
 
@@ -301,7 +297,7 @@ class LoopbackConnectProxy:
         if (host, port) in self._local_targets:
             return True
         return port == 443 and any(
-            host == domain or host.endswith("." + domain) for domain in META_DOMAINS
+            host == domain or host.endswith("." + domain) for domain in IG_DOMAINS
         )
 
     def _handle(self, client: socket.socket) -> None:

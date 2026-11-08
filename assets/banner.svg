@@ -95,11 +95,11 @@
   <rect x="30" y="25" width="186" height="28" rx="14" fill="#161928" fill-opacity="0.9" stroke="#2d324b" stroke-width="1" />
   <circle cx="48" cy="39" r="6" fill="#22c55e" fill-opacity="0.22" />
   <circle cx="48" cy="39" r="3.8" fill="#22c55e" class="dot-live" />
-  <text x="62" y="43" class="mono" font-size="11.2" font-weight="600" fill="#cbd5e1">IGCHAT-V2 :: v2.3.4</text>
+  <text x="62" y="43" class="mono" font-size="11.2" font-weight="600" fill="#cbd5e1">IGCHAT-V2 :: v3.0.0</text>
 
   <!-- Top Right Tech Pill -->
-  <rect x="614" y="25" width="236" height="28" rx="14" fill="#161928" fill-opacity="0.9" stroke="#2d324b" stroke-width="1" />
-  <text x="732" y="43" text-anchor="middle" class="mono" font-size="11.2" font-weight="600" fill="#70a5fd">ASYNC PYTHON · GO E2EE</text>
+  <rect x="604" y="25" width="246" height="28" rx="14" fill="#161928" fill-opacity="0.9" stroke="#2d324b" stroke-width="1" />
+  <text x="727" y="43" text-anchor="middle" class="mono" font-size="11.2" font-weight="600" fill="#70a5fd">ASYNC PYTHON · GO INSTAMEOW</text>
 
   <!-- Hero Title -->
   <text x="440" y="102" text-anchor="middle" class="sans" font-size="44" font-weight="800" letter-spacing="-0.8">
@@ -108,7 +108,7 @@
 
   <!-- Hero Subtitle -->
   <text x="440" y="132" text-anchor="middle" class="mono" font-size="14" font-weight="500" fill="#cbd5e1" letter-spacing="0.2">
-    Async-first Instagram Direct &amp; Labyrinth/Signal E2EE Client
+    Async-first Instagram Direct &amp; Polaris GraphQL Client
   </text>
 
   <!-- Animated Gradient Scanner Bar -->
@@ -119,6 +119,7 @@
 
   <!-- Bottom Meta Line -->
   <text x="440" y="185" text-anchor="middle" class="mono" font-size="11.5" fill="#7e8ba3">
-    by 0xshijn · httpx · paho-mqtt · mautrix-meta JSON-RPC
+    by 0xshijn · httpx · instameow DGW · Slide GraphQL
   </text>
 </svg>
+

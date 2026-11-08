@@ -1,4 +1,4 @@
-"""Verify the wheel layout and the documented top-level import contract."""
+"""Verify the wheel/sdist layout and documented public API of igchat_v2."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import base64
 import csv
 import hashlib
 import importlib
-import importlib.util
 import io
 import stat
 import sys
@@ -19,13 +18,25 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 
 DISTIBUTION_NAME = "igchat-v2"
-EXPECTED_VERSION = "2.3.4"
+EXPECTED_VERSION = "3.0.0"
 PACKAGE_NAMES = ("igchat_v2",)
-_SYNC_MODULE_NAME = (
-    f"{__package__}.sync_canonical_package" if __package__ else "sync_canonical_package"
-)
-_SYNC_MODULE = importlib.import_module(_SYNC_MODULE_NAME)
-REQUIRED_WHEEL_MEMBERS: frozenset[str] = _SYNC_MODULE.canonical_package_members()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_PACKAGE_DIR = REPO_ROOT / "src" / "igchat_v2"
+
+
+def discover_canonical_members() -> frozenset[str]:
+    members: set[str] = set()
+    for file_path in SRC_PACKAGE_DIR.rglob("*"):
+        if not file_path.is_file():
+            continue
+        rel = file_path.relative_to(REPO_ROOT / "src")
+        if "__pycache__" in rel.parts or rel.suffix == ".pyc":
+            continue
+        members.add(rel.as_posix())
+    return frozenset(members)
+
+
+REQUIRED_WHEEL_MEMBERS: frozenset[str] = discover_canonical_members()
 WHEEL_DIST_INFO_ROOT = f"igchat_v2-{EXPECTED_VERSION}.dist-info"
 ALLOWED_WHEEL_MEMBERS = REQUIRED_WHEEL_MEMBERS | {
     f"{WHEEL_DIST_INFO_ROOT}/METADATA",
@@ -46,7 +57,6 @@ ALLOWED_SDIST_FILES = frozenset(
         *(f"src/{member}" for member in REQUIRED_WHEEL_MEMBERS),
     }
 )
-REQUIRED_SDIST_MEMBERS = ALLOWED_SDIST_FILES
 
 
 def _validate_archive_path(name: str, *, artifact: str) -> PurePosixPath:
@@ -126,7 +136,7 @@ def _verify_wheel_record(archive: zipfile.ZipFile, members: set[str]) -> None:
 
 
 def verify_wheel(wheel_path: Path) -> None:
-    """Ensure the wheel exposes packages at top level instead of under ``src``."""
+    """Ensure the wheel exposes `igchat_v2` cleanly at top level."""
     if not wheel_path.is_file():
         raise FileNotFoundError(f"Không tìm thấy wheel: {wheel_path}")
 
@@ -193,7 +203,7 @@ def verify_wheel(wheel_path: Path) -> None:
 
 
 def verify_sdist(sdist_path: Path) -> None:
-    """Ensure the sdist contains only canonical, reproducible project sources."""
+    """Ensure the sdist contains only canonical project sources."""
     if not sdist_path.is_file():
         raise FileNotFoundError(f"Không tìm thấy sdist: {sdist_path}")
 
@@ -227,7 +237,7 @@ def verify_sdist(sdist_path: Path) -> None:
             file_names.append(relative)
             if relative == "PKG-INFO":
                 extracted = archive.extractfile(member)
-                if extracted is None:  # pragma: no cover - tarfile contract guard
+                if extracted is None:
                     raise RuntimeError("Không đọc được PKG-INFO trong sdist")
                 pkg_info_payload = extracted.read()
 
@@ -240,7 +250,7 @@ def verify_sdist(sdist_path: Path) -> None:
         raise RuntimeError(
             "Sdist chứa file ngoài allowlist: " + ", ".join(unexpected[:5])
         )
-    if pkg_info_payload is None:  # pragma: no cover - covered by exact allowlist
+    if pkg_info_payload is None:
         raise RuntimeError("Sdist thiếu PKG-INFO")
     pkg_info = Parser().parsestr(pkg_info_payload.decode("utf-8", errors="strict"))
     if pkg_info.get_all("Name", []) != [DISTIBUTION_NAME]:
@@ -255,9 +265,9 @@ def verify_sdist(sdist_path: Path) -> None:
 
 
 def verify_imports() -> None:
-    """Import only the collision-safe public namespace."""
+    """Import only the public v3.0.0 namespace of `igchat_v2`."""
     imported = [importlib.import_module(package) for package in PACKAGE_NAMES]
-    if any(module is None for module in imported):  # pragma: no cover - defensive
+    if any(module is None for module in imported):
         raise RuntimeError("Không import được đầy đủ package công khai")
 
     try:
@@ -271,36 +281,31 @@ def verify_imports() -> None:
 
     public_package = importlib.import_module("igchat_v2")
     for export in (
-        "dataGetHome",
-        "listeningEvent",
-        "listeningE2EEEvent",
+        "InstagramSession",
+        "bootstrap_session",
+        "login_with_credentials",
+        "BridgeProcess",
         "BridgeActions",
-        "SendAPI",
-        "E2EESendAPI",
+        "ReconnectPolicy",
+        "DirectListener",
+        "send_text_message",
+        "create_note",
+        "get_user_profile",
+        "publish_photo",
+        "InstagramBot",
     ):
         if not hasattr(public_package, export):
             raise RuntimeError(f"igchat_v2 thiếu public export {export}")
-    importlib.import_module("igchat_v2._features._instagram._get_user_info")
 
-    instagram = importlib.import_module("igchat_v2._features._instagram")
-    exported = getattr(instagram, "__all__", ())
-    if "_unFriend" not in exported:
-        raise RuntimeError(
-            "igchat_v2._features._instagram.__all__ chưa export _unFriend"
-        )
-    unfriend_module = "igchat_v2._features._instagram._unFriend"
-    if importlib.util.find_spec(unfriend_module) is None:
-        raise RuntimeError(f"Không tìm thấy module {unfriend_module}")
-    importlib.import_module(unfriend_module)
-
-    if "_reactionPost" not in exported:
-        raise RuntimeError(
-            "igchat_v2._features._instagram.__all__ chưa export _reactionPost"
-        )
-    reaction_module = "igchat_v2._features._instagram._reactionPost"
-    if importlib.util.find_spec(reaction_module) is None:
-        raise RuntimeError(f"Không tìm thấy module {reaction_module}")
-    importlib.import_module(reaction_module)
+    for subpkg in (
+        "igchat_v2.core",
+        "igchat_v2.auth",
+        "igchat_v2.bridge",
+        "igchat_v2.direct",
+        "igchat_v2.social",
+        "igchat_v2.bot",
+    ):
+        importlib.import_module(subpkg)
 
 
 def parse_args() -> argparse.Namespace:
@@ -324,7 +329,7 @@ def main() -> int:
         else:
             raise RuntimeError(f"Artifact không được hỗ trợ: {args.artifact}")
     verify_imports()
-    print("Distribution smoke test: OK")
+    print("Distribution smoke test (igchat-v2 v3.0.0): OK")
     return 0
 
 

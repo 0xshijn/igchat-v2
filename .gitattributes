@@ -3,16 +3,15 @@
 # Docs: https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
 # =============================================================================
 
-# Bridge E2EE trong main.go và bridge/ là code Go do dự án duy trì nên phải
-# được GitHub Linguist tính vào thống kê ngôn ngữ. Chỉ loại submodule upstream.
-bridge-e2ee/meta/**        linguist-vendored
+# Pure Instagram Direct bridge trong main.go và bridge/ là code Go do dự án
+# duy trì nên được GitHub Linguist tính vào thống kê ngôn ngữ. Chỉ loại submodule upstream.
+bridge/meta/**             linguist-vendored
 
 # Binary build từ Go — không phải source code.
 build/**                   linguist-generated
 build/**                   binary
 
-# Tài liệu / website không tính vào ngôn ngữ chính.
-website/**                 linguist-documentation
+# Tài liệu không tính vào ngôn ngữ chính.
 docs/**                    linguist-documentation
 *.md                       linguist-documentation
 

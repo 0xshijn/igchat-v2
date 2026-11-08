@@ -13,7 +13,6 @@ REQUIRED_CAPABILITIES = frozenset(
     {
         "newClient",
         "connect",
-        "connectE2EE",
         "isConnected",
         "events",
         "structuredConnectionStatus",
@@ -110,6 +109,10 @@ def smoke_bridge(
             "Bridge version không khớp package: "
             f"{hello_data.get('bridgeVersion')!r} != {expected_version!r}"
         )
+    if hello_data.get("platform") != "instagram":
+        raise RuntimeError(
+            f"Bridge platform phải là 'instagram', nhận được {hello_data.get('platform')!r}"
+        )
     capabilities = hello_data.get("capabilities")
     if not isinstance(capabilities, list) or not all(
         isinstance(item, str) for item in capabilities
@@ -122,7 +125,6 @@ def smoke_bridge(
     status = responses[2]
     if status.get("ok") is not True or status.get("data") != {
         "connected": False,
-        "e2eeConnected": False,
         "nativeReconnecting": False,
     }:
         raise RuntimeError(f"Response isConnected không đúng contract: {status!r}")
@@ -166,7 +168,7 @@ def main() -> int:
         expected_version=args.expected_version,
         timeout=args.timeout,
     )
-    print("Native bridge JSON-RPC smoke test: OK")
+    print("Native Instagram Direct bridge JSON-RPC smoke test: OK")
     return 0
 
 

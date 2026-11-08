@@ -1,11 +1,7 @@
 {
-  "botName": "igchat-v2 demo bot",
+  "version": "3.0.0",
+  "cookies": "PASTE_YOUR_INSTAGRAM_COOKIE_HERE",
   "prefix": "/",
-  "cookies": "PASTE_YOUR_FACEBOOK_COOKIE_HERE",
-  "admins": [
-    "1000xxxxxxxxxx"
-  ],
-  "log_message_content": false,
-  "debug_errors": false,
-  "version": "0.0.1"
+  "admins": [],
+  "auto_download_links": false
 }

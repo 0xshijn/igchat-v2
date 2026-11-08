@@ -1,40 +1,143 @@
-"""Public namespace for the igchat-v2 distribution."""
+"""igchat-v2 v3.0.0 — Async-first Instagram Direct & Polaris GraphQL library."""
 
 from __future__ import annotations
 
-from ._core import __version__
-from ._core._session import dataGetHome
-from ._core._storage import EnvSessionStorage, FileSessionStorage
-from ._messaging import _changeTheme as changeTheme
-from ._messaging import _createNotes as createNotes
-from ._messaging import _editMessage as editMessage
-from ._messaging._bridge_actions import BridgeActions
-from ._messaging._listening import listeningEvent
-from ._messaging._listening_e2ee import listeningE2EEEvent
-from ._messaging._reconnect import ConnectionFailure, ReconnectPolicy
-from ._messaging._send import api as SendAPI
-from ._messaging._send_e2ee import api as E2EESendAPI
+__version__ = "3.0.0"
 
-__author__ = "Shiin (Phước Toàn)"
-__license__ = "Apache-2.0"
-sendingE2EEEvent = E2EESendAPI
+from .auth import (
+    EnvSessionStorage,
+    FileSessionStorage,
+    LoginResult,
+    SessionStorage,
+    bootstrap_session,
+    login_with_credentials,
+)
+from .bot import InstagramBot, PerUserRateLimiter, main_blocking, run_bot
+from .bridge import (
+    BRIDGE_PROTOCOL_VERSION,
+    EXPECTED_BRIDGE_VERSION,
+    BridgeActions,
+    BridgeProcess,
+    ConnectionStatus,
+    ReconnectPolicy,
+)
+from .core import (
+    AuthenticationError,
+    BridgeError,
+    BridgeProtocolError,
+    CheckpointRequiredError,
+    IGChatError,
+    InstagramSession,
+    MessageEvent,
+    SecurityViolationError,
+    SendResult,
+    SessionCookieError,
+    SessionError,
+    ThreadSummary,
+    UserSummary,
+)
+from .direct import (
+    DirectListener,
+    accept_message_request,
+    create_note,
+    delete_note,
+    demote_admin,
+    edit_text_message,
+    fetch_inbox_threads,
+    fetch_notes,
+    fetch_thread_detail,
+    mute_thread_rest,
+    promote_admin,
+    react_to_message,
+    rename_thread,
+    search_note_music,
+    send_text_message,
+    unsend_text_message,
+    upload_photo_rupload,
+    upload_video_rupload,
+)
+from .social import (
+    block_user,
+    change_bio,
+    comment_media,
+    delete_comment,
+    fetch_notifications,
+    follow_user,
+    get_user_profile,
+    like_media,
+    media_id_to_shortcode,
+    publish_photo,
+    remove_follower,
+    save_media,
+    search_users,
+    shortcode_to_media_id,
+    unblock_user,
+    unfollow_user,
+)
 
 __all__ = [
-    "__version__",
-    "__author__",
-    "__license__",
-    "dataGetHome",
+    "BRIDGE_PROTOCOL_VERSION",
+    "EXPECTED_BRIDGE_VERSION",
+    "AuthenticationError",
+    "BridgeActions",
+    "BridgeError",
+    "BridgeProcess",
+    "BridgeProtocolError",
+    "CheckpointRequiredError",
+    "ConnectionStatus",
+    "DirectListener",
     "EnvSessionStorage",
     "FileSessionStorage",
-    "listeningEvent",
-    "listeningE2EEEvent",
+    "IGChatError",
+    "InstagramBot",
+    "InstagramSession",
+    "LoginResult",
+    "MessageEvent",
+    "PerUserRateLimiter",
     "ReconnectPolicy",
-    "ConnectionFailure",
-    "BridgeActions",
-    "SendAPI",
-    "E2EESendAPI",
-    "sendingE2EEEvent",
-    "editMessage",
-    "changeTheme",
-    "createNotes",
+    "SecurityViolationError",
+    "SendResult",
+    "SessionCookieError",
+    "SessionError",
+    "SessionStorage",
+    "ThreadSummary",
+    "UserSummary",
+    "__version__",
+    "accept_message_request",
+    "block_user",
+    "bootstrap_session",
+    "change_bio",
+    "comment_media",
+    "create_note",
+    "delete_comment",
+    "delete_note",
+    "demote_admin",
+    "edit_text_message",
+    "fetch_inbox_threads",
+    "fetch_notes",
+    "fetch_notifications",
+    "fetch_thread_detail",
+    "follow_user",
+    "get_user_profile",
+    "like_media",
+    "login_with_credentials",
+    "main_blocking",
+    "media_id_to_shortcode",
+    "mute_thread_rest",
+    "promote_admin",
+    "publish_photo",
+    "react_to_message",
+    "remove_follower",
+    "rename_thread",
+    "run_bot",
+    "save_media",
+    "search_note_music",
+    "search_users",
+    "send_text_message",
+    "shortcode_to_media_id",
+    "unblock_user",
+    "unfollow_user",
+    "unsend_text_message",
+    "upload_photo_rupload",
+    "upload_video_rupload",
 ]

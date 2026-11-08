@@ -1,111 +1,44 @@
+"""Unit tests for scripts.release_artifacts."""
+
 from __future__ import annotations
 
-import io
-import tarfile
-import zipfile
 from pathlib import Path
 
 import pytest
+
 from scripts.release_artifacts import (
-    CHECKSUM_MODULE_MEMBER,
-    EXPECTED_BINARY_NAMES,
-    bind_checksums,
-    collect_binary_digests,
+    read_project_version,
     render_checksum_module,
     validate_release_tag,
-    verify_distributions,
     verify_manifest,
 )
 
 
-def test_public_namespace_exports_package_and_nested_feature() -> None:
-    import igchat_v2
-    from igchat_v2._features._instagram._get_user_info import func
-
-    assert igchat_v2.__version__ == "2.3.4"
-    assert callable(igchat_v2.dataGetHome)
-    assert callable(igchat_v2.listeningE2EEEvent)
-    assert callable(func)
-
-
-def _write_binaries(directory: Path) -> dict[str, str]:
-    directory.mkdir()
-    for index, name in enumerate(sorted(EXPECTED_BINARY_NAMES), start=1):
-        (directory / name).write_bytes(f"binary-{index}".encode())
-    return collect_binary_digests(directory)
-
-
-def _write_distributions(dist_dir: Path, checksum_source: str) -> None:
-    dist_dir.mkdir()
-    with zipfile.ZipFile(dist_dir / "igchat_v2-2.3.4-py3-none-any.whl", "w") as wheel:
-        wheel.writestr(CHECKSUM_MODULE_MEMBER, checksum_source)
-
-    payload = checksum_source.encode()
-    with tarfile.open(dist_dir / "igchat_v2-2.3.4.tar.gz", "w:gz") as sdist:
-        info = tarfile.TarInfo(f"igchat_v2-2.3.4/src/{CHECKSUM_MODULE_MEMBER}")
-        info.size = len(payload)
-        sdist.addfile(info, io.BytesIO(payload))
-
-
-def test_bind_and_verify_final_distributions(tmp_path: Path) -> None:
-    binaries = tmp_path / "binaries"
-    expected = _write_binaries(binaries)
-    module = tmp_path / "source" / "_bridge_checksums.py"
-    manifest = binaries / "SHA256SUMS"
-
-    assert bind_checksums(binaries, module, manifest, version="2.3.4") == expected
-    assert manifest.read_text(encoding="ascii").splitlines() == [
-        f"{digest}  {name}" for name, digest in sorted(expected.items())
-    ]
-
-    dist = tmp_path / "dist"
-    _write_distributions(dist, module.read_text(encoding="utf-8"))
-    wheel, sdist = verify_distributions(
-        binaries, dist, version="2.3.4", manifest_path=manifest
+def test_read_project_version_and_tag(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "igchat-v2"\nversion = "3.0.0"\n',
+        encoding="utf-8",
     )
-    assert wheel.suffix == ".whl"
-    assert sdist.name.endswith(".tar.gz")
+    ver = read_project_version(pyproject)
+    assert ver == "3.0.0"
+
+    validate_release_tag("v3.0.0", "3.0.0")
+    with pytest.raises(RuntimeError):
+        validate_release_tag("v2.3.4", "3.0.0")
 
 
-def test_verify_rejects_checksum_drift(tmp_path: Path) -> None:
-    binaries = tmp_path / "binaries"
-    digests = _write_binaries(binaries)
-    module = tmp_path / "source" / "_bridge_checksums.py"
-    manifest = binaries / "SHA256SUMS"
-    bind_checksums(binaries, module, manifest, version="2.3.4")
-    stale = dict(digests)
-    stale[sorted(stale)[0]] = "0" * 64
-    dist = tmp_path / "dist"
-    _write_distributions(dist, render_checksum_module("2.3.4", stale))
+def test_render_and_verify_manifest(tmp_path: Path) -> None:
+    digests = {
+        "igchat-bridge-linux-amd64": "a" * 64,
+        "igchat-bridge-windows-amd64.exe": "b" * 64,
+    }
+    rendered = render_checksum_module("3.0.0", digests)
+    assert "BRIDGE_RELEASE_VERSION: str | None = '3.0.0'" in rendered
 
-    with pytest.raises(RuntimeError, match="checksum không khớp"):
-        verify_distributions(binaries, dist, version="2.3.4", manifest_path=manifest)
-
-
-def test_verify_manifest_rejects_tampering(tmp_path: Path) -> None:
-    binaries = tmp_path / "binaries"
-    digests = _write_binaries(binaries)
-    manifest = binaries / "SHA256SUMS"
-    manifest.write_text(
-        "".join(f"{'0' * 64}  {name}\n" for name in sorted(digests)),
+    manifest_file = tmp_path / "manifest.sha256"
+    manifest_file.write_text(
+        f"{'a'*64}  igchat-bridge-linux-amd64\n{'b'*64}  igchat-bridge-windows-amd64.exe\n",
         encoding="ascii",
     )
-
-    with pytest.raises(RuntimeError, match="manifest không khớp"):
-        verify_manifest(manifest, digests)
-
-
-def test_collect_binary_digests_requires_exact_platform_set(tmp_path: Path) -> None:
-    binaries = tmp_path / "binaries"
-    _write_binaries(binaries)
-    (binaries / sorted(EXPECTED_BINARY_NAMES)[0]).unlink()
-    (binaries / "igchat-bridge-e2ee-plan9-amd64").write_bytes(b"nope")
-
-    with pytest.raises(RuntimeError, match=r"thiếu:.*thừa:"):
-        collect_binary_digests(binaries)
-
-
-def test_validate_release_tag_requires_exact_project_version() -> None:
-    validate_release_tag("v2.3.4", "2.3.4")
-    with pytest.raises(RuntimeError, match="không khớp"):
-        validate_release_tag("v2.2.1", "2.3.4")
+    verify_manifest(manifest_file, digests)

@@ -1,6 +1,5 @@
 __pycache__/
 *.py[cod]
-website/
 *$py.class
 *.so
 .Python
@@ -36,7 +35,6 @@ venv.bak/
 .project
 .pydevproject
 .settings/
-.docs/
 
 *.log
 logs/
@@ -46,9 +44,9 @@ logs/
 *.db
 *.db-journal
 src/config.json
-AGENT_MEMORYs.md
-CLAUDE.md
-.vbsec-tmp/
-vbsec-reports/
+src/.session_cache.json
+.session_cache.json
 src/test.py
-.understand-anything
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
