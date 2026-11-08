@@ -108,6 +108,8 @@ warn_unused_configs = true
 files = [
     "igchat",
     "main.py",
+    "scripts",
+    "examples",
     "tests",
 ]
 

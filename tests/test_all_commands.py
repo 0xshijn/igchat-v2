@@ -44,9 +44,7 @@ async def run_all_command_tests() -> None:
             {"pk": "111", "username": "alice", "full_name": "Alice"},
             {"pk": "222", "username": "bob", "full_name": "Bob"},
         ],
-        "messages": [
-            {"senderId": "111", "text": "Hi all", "timestampMs": 1000}
-        ],
+        "messages": [{"senderId": "111", "text": "Hi all", "timestampMs": 1000}],
     }
     actions.get_thread_history.return_value = [
         {"id": "msg_1", "senderId": "111", "text": "Hi all", "timestampMs": 1000}
@@ -102,7 +100,9 @@ async def run_all_command_tests() -> None:
         "status": "ok",
         "result": "ok",
         "notifications": [{"text": "Thông báo 1"}],
-        "notes": [{"id": "note_1", "text": "Hello note", "user": {"username": "admin"}}],
+        "notes": [
+            {"id": "note_1", "text": "Hello note", "user": {"username": "admin"}}
+        ],
         "media": {"pk": 12345, "code": "ABCDEF"},
     }
     mock_resp.json.return_value = mock_resp_dict
@@ -156,8 +156,16 @@ async def run_all_command_tests() -> None:
         ("/pinthread", "reply_contains", "ghim hội thoại"),
         ("/unpinthread", "reply_contains", "bỏ ghim hội thoại"),
         # Media & DL
-        ("/image https://example.com/img.jpg", "action_called", actions.send_media_from_url),
-        ("/voice https://example.com/audio.mp3", "action_called", actions.send_media_from_url),
+        (
+            "/image https://example.com/img.jpg",
+            "action_called",
+            actions.send_media_from_url,
+        ),
+        (
+            "/voice https://example.com/audio.mp3",
+            "action_called",
+            actions.send_media_from_url,
+        ),
         ("/autodl on", "reply_contains", "BẬT"),
         ("/autodl off", "reply_contains", "TẮT"),
         # Group Member Management
@@ -213,7 +221,10 @@ async def run_all_command_tests() -> None:
         }
 
         try:
-            with patch("igchat.core.http.download_public_bytes", return_value=b"fake_image_bytes"):
+            with patch(
+                "igchat.core.http.download_public_bytes",
+                return_value=b"fake_image_bytes",
+            ):
                 await bot.handle_event(event)
 
             sent_reply = ""
@@ -241,23 +252,41 @@ async def run_all_command_tests() -> None:
     # Test edit and unsend with cached message
     bot._last_bot_msg.set(thread_id, "bot_msg_999")
     actions.edit_message.reset_mock()
-    await bot.handle_event({
-        "type": "message",
-        "data": {"id": "msg_edit", "threadId": thread_id, "senderId": admin_sender, "text": "/edit Nội dung mới"},
-    })
+    await bot.handle_event(
+        {
+            "type": "message",
+            "data": {
+                "id": "msg_edit",
+                "threadId": thread_id,
+                "senderId": admin_sender,
+                "text": "/edit Nội dung mới",
+            },
+        }
+    )
     edit_ok = actions.edit_message.called
     results.append(("/edit Nội dung mới", edit_ok, "edit_message called"))
-    print(f"[{'PASS' if edit_ok else 'FAIL'}] {'/edit Nội dung mới':<40} -> edit_message called={edit_ok}")
+    print(
+        f"[{'PASS' if edit_ok else 'FAIL'}] {'/edit Nội dung mới':<40} -> edit_message called={edit_ok}"
+    )
 
     actions.unsend_message.reset_mock()
     bot._last_bot_msg.set(thread_id, "bot_msg_999")
-    await bot.handle_event({
-        "type": "message",
-        "data": {"id": "msg_unsend", "threadId": thread_id, "senderId": admin_sender, "text": "/unsend"},
-    })
+    await bot.handle_event(
+        {
+            "type": "message",
+            "data": {
+                "id": "msg_unsend",
+                "threadId": thread_id,
+                "senderId": admin_sender,
+                "text": "/unsend",
+            },
+        }
+    )
     unsend_ok = actions.unsend_message.called
     results.append(("/unsend", unsend_ok, "unsend_message called"))
-    print(f"[{'PASS' if unsend_ok else 'FAIL'}] {'/unsend':<40} -> unsend_message called={unsend_ok}")
+    print(
+        f"[{'PASS' if unsend_ok else 'FAIL'}] {'/unsend':<40} -> unsend_message called={unsend_ok}"
+    )
 
     passed_count = sum(1 for _, ok, _ in results if ok)
     total_count = len(results)

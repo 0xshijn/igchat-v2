@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-bridge-binaries:
+    name: Build Bridge (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            output: igchat-bridge-windows-amd64.exe
+          - goos: windows
+            goarch: arm64
+            output: igchat-bridge-windows-arm64.exe
+          - goos: linux
+            goarch: amd64
+            output: igchat-bridge-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: igchat-bridge-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            output: igchat-bridge-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: igchat-bridge-darwin-arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Compile Bridge Binary
+        working-directory: bridge
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -trimpath -ldflags="-s -w -X main.bridgeVersion=${GITHUB_REF_NAME#v}" -o ../${{ matrix.output }} .
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: ${{ matrix.output }}
+
+  build-pypi-packages:
+    name: Build Python Wheels & Sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build packages
+        run: python -m build
+
+      - name: Verify package integrity
+        run: twine check --strict dist/*
+
+      - name: Upload Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/*
+
+  publish-github-release:
+    name: Publish GitHub Release
+    needs: [build-bridge-binaries, build-pypi-packages]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

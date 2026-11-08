@@ -116,7 +116,9 @@ def load_bot_config(config_path: str | Path) -> dict[str, Any]:
 
     prefix = str(loaded.get("prefix") or "/").strip() or "/"
     raw_admins = loaded.get("admins") or []
-    admins = {str(item).strip().lstrip("#@") for item in raw_admins if str(item).strip()}
+    admins = {
+        str(item).strip().lstrip("#@") for item in raw_admins if str(item).strip()
+    }
     cookies = str(loaded.get("cookies") or loaded.get("cookie") or "").strip()
     if cookies.upper().startswith("PASTE_YOUR_"):
         cookies = ""
@@ -410,7 +412,9 @@ class InstagramBot:
             if cmd == "ping":
                 uptime = int(time.monotonic() - self._started_at)
                 await self.reply(
-                    thread_id, f"🏓 Pong! Uptime: {uptime}s | Kết nối: OK", reply_to_id=msg_id
+                    thread_id,
+                    f"🏓 Pong! Uptime: {uptime}s | Kết nối: OK",
+                    reply_to_id=msg_id,
                 )
                 return
 
@@ -464,7 +468,9 @@ class InstagramBot:
                 items = stories.get("items") or []
                 if not items:
                     await self.reply(
-                        thread_id, f"Tài khoản @{arg} hiện không có Story 24h nào đang hoạt động.", reply_to_id=msg_id
+                        thread_id,
+                        f"Tài khoản @{arg} hiện không có Story 24h nào đang hoạt động.",
+                        reply_to_id=msg_id,
                     )
                     return
                 first_url = str(items[0].get("url") or "")
@@ -481,14 +487,30 @@ class InstagramBot:
                         p_info = await self.actions.get_web_profile(clean_target)
                         uid_to_follow = str(p_info.get("id") or "")
                 if not uid_to_follow.isdigit():
-                    await self.reply(thread_id, f"Không tìm thấy UID cho người dùng: {arg}", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        f"Không tìm thấy UID cho người dùng: {arg}",
+                        reply_to_id=msg_id,
+                    )
                     return
                 if cmd == "follow":
-                    await follow_user(self.session, uid_to_follow, client=self.http_client)
-                    await self.reply(thread_id, f"✅ Đã gửi yêu cầu theo dõi @{clean_target} (#{uid_to_follow}).", reply_to_id=msg_id)
+                    await follow_user(
+                        self.session, uid_to_follow, client=self.http_client
+                    )
+                    await self.reply(
+                        thread_id,
+                        f"✅ Đã gửi yêu cầu theo dõi @{clean_target} (#{uid_to_follow}).",
+                        reply_to_id=msg_id,
+                    )
                 else:
-                    await unfollow_user(self.session, uid_to_follow, client=self.http_client)
-                    await self.reply(thread_id, f"✅ Đã hủy theo dõi @{clean_target} (#{uid_to_follow}).", reply_to_id=msg_id)
+                    await unfollow_user(
+                        self.session, uid_to_follow, client=self.http_client
+                    )
+                    await self.reply(
+                        thread_id,
+                        f"✅ Đã hủy theo dõi @{clean_target} (#{uid_to_follow}).",
+                        reply_to_id=msg_id,
+                    )
                 return
 
             if cmd == "search" and arg:
@@ -506,11 +528,15 @@ class InstagramBot:
                 return
 
             if cmd == "image" and arg:
-                await self.actions.send_media_from_url(thread_id, arg, reply_to_id=msg_id)
+                await self.actions.send_media_from_url(
+                    thread_id, arg, reply_to_id=msg_id
+                )
                 return
 
             if cmd == "voice" and arg:
-                await self.actions.send_media_from_url(thread_id, arg, is_voice=True, reply_to_id=msg_id)
+                await self.actions.send_media_from_url(
+                    thread_id, arg, is_voice=True, reply_to_id=msg_id
+                )
                 return
 
             if cmd == "media":
@@ -520,13 +546,29 @@ class InstagramBot:
                     reply_mid = str(cached["replyTo"].get("messageId") or "")
                     if reply_mid and reply_mid in self._msg_cache:
                         target_data = self._msg_cache.get(reply_mid)
-                atts = target_data.get("attachments") if isinstance(target_data, dict) else []
+                atts = (
+                    target_data.get("attachments")
+                    if isinstance(target_data, dict)
+                    else []
+                )
                 if atts:
-                    urls = [a.get("url") or a.get("previewUrl") for a in atts if a.get("url") or a.get("previewUrl")]
+                    urls = [
+                        a.get("url") or a.get("previewUrl")
+                        for a in atts
+                        if a.get("url") or a.get("previewUrl")
+                    ]
                     if urls:
-                        await self.reply(thread_id, "🔗 Media URLs:\n" + "\n".join(str(u) for u in urls), reply_to_id=msg_id)
+                        await self.reply(
+                            thread_id,
+                            "🔗 Media URLs:\n" + "\n".join(str(u) for u in urls),
+                            reply_to_id=msg_id,
+                        )
                         return
-                await self.reply(thread_id, "Không tìm thấy URL tệp đính kèm trong tin nhắn này.", reply_to_id=msg_id)
+                await self.reply(
+                    thread_id,
+                    "Không tìm thấy URL tệp đính kèm trong tin nhắn này.",
+                    reply_to_id=msg_id,
+                )
                 return
 
             if cmd == "dl" and arg:
@@ -564,14 +606,18 @@ class InstagramBot:
 
             if cmd in {"thread", "history"}:
                 limit = int(arg) if arg.isdigit() else 5
-                detail = await self.actions.get_thread_info(thread_id, message_limit=limit)
+                detail = await self.actions.get_thread_info(
+                    thread_id, message_limit=limit
+                )
                 msgs = detail.get("messages") or []
                 msg_lines = []
                 for m in msgs[-limit:]:
                     snd = m.get("senderId") or m.get("sender_id") or "unknown"
                     txt = m.get("text") or "[media/attachment]"
                     msg_lines.append(f"  [#{snd}]: {txt}")
-                history_text = "\n".join(msg_lines) if msg_lines else "Chưa có tin nhắn nào."
+                history_text = (
+                    "\n".join(msg_lines) if msg_lines else "Chưa có tin nhắn nào."
+                )
                 await self.reply(
                     thread_id,
                     (
@@ -586,7 +632,9 @@ class InstagramBot:
 
             if cmd == "requests":
                 reqs = await self.actions.get_message_requests()
-                lines = [f"• #{t.get('id')} | {t.get('name') or 'Direct'}" for t in reqs[:10]]
+                lines = [
+                    f"• #{t.get('id')} | {t.get('name') or 'Direct'}" for t in reqs[:10]
+                ]
                 await self.reply(
                     thread_id,
                     "\n".join(lines) or "Không có tin nhắn chờ.",
@@ -614,7 +662,11 @@ class InstagramBot:
                         for n in notes[:10]
                         if isinstance(n, dict)
                     ]
-                    await self.reply(thread_id, "\n".join(lines) or "Chưa có Notes nào.", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        "\n".join(lines) or "Chưa có Notes nào.",
+                        reply_to_id=msg_id,
+                    )
                 elif arg_low == "clear":
                     res = await fetch_notes(self.session, client=self.http_client)
                     notes = res.get("notes") or []
@@ -681,18 +733,30 @@ class InstagramBot:
                 note_msg = ""
                 if "|" in arg:
                     song_part, note_msg = [p.strip() for p in arg.split("|", 1)]
-                tracks = await search_note_music(self.session, song_part, client=self.http_client)
+                tracks = await search_note_music(
+                    self.session, song_part, client=self.http_client
+                )
                 if not tracks:
-                    await self.reply(thread_id, f"Không tìm thấy bài hát: {song_part}", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        f"Không tìm thấy bài hát: {song_part}",
+                        reply_to_id=msg_id,
+                    )
                     return
                 first_track = tracks[0]
                 audio_id = first_track.get("audio_cluster_id")
                 track_title = first_track.get("title", "Unknown")
                 track_artist = first_track.get("display_artist", "Unknown")
-                await create_note(self.session, note_msg, audio_cluster_id=audio_id, client=self.http_client)
+                await create_note(
+                    self.session,
+                    note_msg,
+                    audio_cluster_id=audio_id,
+                    client=self.http_client,
+                )
                 await self.reply(
                     thread_id,
-                    f"✅ Đã đăng Note 24h kèm nhạc:\n🎵 {track_title} - {track_artist}" + (f"\n💬 {note_msg}" if note_msg else ""),
+                    f"✅ Đã đăng Note 24h kèm nhạc:\n🎵 {track_title} - {track_artist}"
+                    + (f"\n💬 {note_msg}" if note_msg else ""),
                     reply_to_id=msg_id,
                 )
                 return
@@ -755,7 +819,11 @@ class InstagramBot:
                     if isinstance(p, dict) and p.get("username")
                 ]
                 if not names:
-                    await self.reply(thread_id, "Không tìm thấy danh sách thành viên trong nhóm.", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        "Không tìm thấy danh sách thành viên trong nhóm.",
+                        reply_to_id=msg_id,
+                    )
                     return
                 tag_str = " ".join(names)
                 msg_content = f"📢 [TAG ALL]\n{tag_str}"
@@ -769,8 +837,14 @@ class InstagramBot:
                 target_tid = int(parts_fwd[0]) if parts_fwd[0].isdigit() else 0
                 fwd_text = parts_fwd[1] if len(parts_fwd) > 1 else ""
                 if target_tid:
-                    await self.actions.forward_message(thread_id, target_tid, message_id=msg_id, text=fwd_text)
-                    await self.reply(thread_id, f"✅ Đã chuyển tiếp tin nhắn sang thread #{target_tid}.", reply_to_id=msg_id)
+                    await self.actions.forward_message(
+                        thread_id, target_tid, message_id=msg_id, text=fwd_text
+                    )
+                    await self.reply(
+                        thread_id,
+                        f"✅ Đã chuyển tiếp tin nhắn sang thread #{target_tid}.",
+                        reply_to_id=msg_id,
+                    )
                 return
 
             if cmd == "more":
@@ -782,7 +856,11 @@ class InstagramBot:
                     snd = m.get("senderId") or "unknown"
                     txt = m.get("text") or "[media]"
                     lines.append(f"• [#{snd}]: {txt}")
-                await self.reply(thread_id, f"📜 Đã tải thêm {len(lines)} tin nhắn cũ:\n" + "\n".join(lines), reply_to_id=msg_id)
+                await self.reply(
+                    thread_id,
+                    f"📜 Đã tải thêm {len(lines)} tin nhắn cũ:\n" + "\n".join(lines),
+                    reply_to_id=msg_id,
+                )
                 return
 
             # Admin-only commands below
@@ -791,7 +869,11 @@ class InstagramBot:
 
             if cmd == "bio" and arg:
                 await change_bio(self.session, arg, client=self.http_client)
-                await self.reply(thread_id, f"✅ Đã cập nhật Bio tài khoản thành:\n{arg}", reply_to_id=msg_id)
+                await self.reply(
+                    thread_id,
+                    f"✅ Đã cập nhật Bio tài khoản thành:\n{arg}",
+                    reply_to_id=msg_id,
+                )
             elif cmd == "deletethread":
                 is_spam = "spam" in arg.lower()
                 await self.reply(thread_id, "🗑️ Đã xóa hội thoại.")
@@ -801,12 +883,22 @@ class InstagramBot:
                 is_clear = arg.lower().strip() in {"clear", "remove", "delete"}
                 await self.reply(
                     thread_id,
-                    "✅ Đã xóa ảnh đại diện nhóm." if is_clear else "✅ Đã cập nhật ảnh đại diện nhóm.",
+                    (
+                        "✅ Đã xóa ảnh đại diện nhóm."
+                        if is_clear
+                        else "✅ Đã cập nhật ảnh đại diện nhóm."
+                    ),
                     reply_to_id=msg_id,
                 )
             elif cmd == "autodl":
-                self.auto_download_links = (arg.lower() != "off") if arg else not self.auto_download_links
-                await self.reply(thread_id, f"✅ Tự động tải media link IG: {'BẬT' if self.auto_download_links else 'TẮT'}", reply_to_id=msg_id)
+                self.auto_download_links = (
+                    (arg.lower() != "off") if arg else not self.auto_download_links
+                )
+                await self.reply(
+                    thread_id,
+                    f"✅ Tự động tải media link IG: {'BẬT' if self.auto_download_links else 'TẮT'}",
+                    reply_to_id=msg_id,
+                )
             elif cmd == "creategroup" and arg:
                 grp_parts = arg.split(maxsplit=1)
                 uids_raw = grp_parts[0].split(",")
@@ -815,24 +907,58 @@ class InstagramBot:
                 if uids:
                     res = await self.actions.create_group(uids, title=grp_title)
                     new_tid = res.get("threadId") or res.get("id") or "mới"
-                    await self.reply(thread_id, f"✅ Đã tạo nhóm thành công: {grp_title} (#{new_tid}).", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        f"✅ Đã tạo nhóm thành công: {grp_title} (#{new_tid}).",
+                        reply_to_id=msg_id,
+                    )
             elif cmd == "notif":
-                notifs = await fetch_notifications(self.session, client=self.http_client)
+                notifs = await fetch_notifications(
+                    self.session, client=self.http_client
+                )
                 items = notifs.get("notifications") or notifs.get("items") or []
                 if not items:
-                    await self.reply(thread_id, "Không có thông báo hoạt động mới.", reply_to_id=msg_id)
+                    await self.reply(
+                        thread_id,
+                        "Không có thông báo hoạt động mới.",
+                        reply_to_id=msg_id,
+                    )
                 else:
-                    lines = [f"• {n.get('text') or n.get('title', 'Thông báo')}" for n in items[:8] if isinstance(n, dict)]
-                    await self.reply(thread_id, "🔔 Thông báo gần đây:\n" + "\n".join(lines), reply_to_id=msg_id)
+                    lines = [
+                        f"• {n.get('text') or n.get('title', 'Thông báo')}"
+                        for n in items[:8]
+                        if isinstance(n, dict)
+                    ]
+                    await self.reply(
+                        thread_id,
+                        "🔔 Thông báo gần đây:\n" + "\n".join(lines),
+                        reply_to_id=msg_id,
+                    )
             elif cmd == "post" and arg:
                 post_parts = arg.split(maxsplit=1)
                 img_url = post_parts[0]
                 caption_text = post_parts[1] if len(post_parts) > 1 else ""
-                await publish_photo(self.session, img_url, caption=caption_text, to_story=False, client=self.http_client)
-                await self.reply(thread_id, "✅ Đã đăng ảnh mới lên Feed Instagram!", reply_to_id=msg_id)
+                await publish_photo(
+                    self.session,
+                    img_url,
+                    caption=caption_text,
+                    to_story=False,
+                    client=self.http_client,
+                )
+                await self.reply(
+                    thread_id,
+                    "✅ Đã đăng ảnh mới lên Feed Instagram!",
+                    reply_to_id=msg_id,
+                )
             elif cmd == "upstory" and arg:
-                await publish_photo(self.session, arg.strip(), to_story=True, client=self.http_client)
-                await self.reply(thread_id, "✅ Đã đăng ảnh lên Story 24h Instagram!", reply_to_id=msg_id)
+                await publish_photo(
+                    self.session, arg.strip(), to_story=True, client=self.http_client
+                )
+                await self.reply(
+                    thread_id,
+                    "✅ Đã đăng ảnh lên Story 24h Instagram!",
+                    reply_to_id=msg_id,
+                )
             elif cmd == "say" and arg:
                 await self.reply(thread_id, arg)
             elif cmd == "unsend":
@@ -866,8 +992,12 @@ class InstagramBot:
                 if isinstance(cached, dict) and cached.get("replyTo"):
                     quoted_mid = str(cached["replyTo"].get("messageId") or "")
                     if quoted_mid:
-                        await self.actions.pin_message(thread_id, quoted_mid, pinned=True)
-                        await self.reply(thread_id, "✅ Đã ghim tin nhắn.", reply_to_id=msg_id)
+                        await self.actions.pin_message(
+                            thread_id, quoted_mid, pinned=True
+                        )
+                        await self.reply(
+                            thread_id, "✅ Đã ghim tin nhắn.", reply_to_id=msg_id
+                        )
                         return
                 await self.actions.pin_thread(thread_id, pinned=True)
                 await self.reply(thread_id, "✅ Đã ghim hội thoại.")
@@ -876,8 +1006,12 @@ class InstagramBot:
                 if isinstance(cached, dict) and cached.get("replyTo"):
                     quoted_mid = str(cached["replyTo"].get("messageId") or "")
                     if quoted_mid:
-                        await self.actions.pin_message(thread_id, quoted_mid, pinned=False)
-                        await self.reply(thread_id, "✅ Đã bỏ ghim tin nhắn.", reply_to_id=msg_id)
+                        await self.actions.pin_message(
+                            thread_id, quoted_mid, pinned=False
+                        )
+                        await self.reply(
+                            thread_id, "✅ Đã bỏ ghim tin nhắn.", reply_to_id=msg_id
+                        )
                         return
                 await self.actions.pin_thread(thread_id, pinned=False)
                 await self.reply(thread_id, "✅ Đã bỏ ghim hội thoại.")
@@ -907,14 +1041,18 @@ class InstagramBot:
                     await self.actions.modify_group_admins(
                         thread_id, [int(clean_uid)], promote=True
                     )
-                    await self.reply(thread_id, f"✅ Đã cấp quyền admin cho #{clean_uid}.")
+                    await self.reply(
+                        thread_id, f"✅ Đã cấp quyền admin cho #{clean_uid}."
+                    )
             elif cmd == "demote" and arg:
                 clean_uid = arg.strip().lstrip("#@")
                 if clean_uid.isdigit():
                     await self.actions.modify_group_admins(
                         thread_id, [int(clean_uid)], promote=False
                     )
-                    await self.reply(thread_id, f"✅ Đã gỡ quyền admin của #{clean_uid}.")
+                    await self.reply(
+                        thread_id, f"✅ Đã gỡ quyền admin của #{clean_uid}."
+                    )
             elif cmd == "leave":
                 await self.reply(thread_id, "👋 Tạm biệt mọi người! Bot rời nhóm.")
                 await self.actions.leave_group(thread_id)
@@ -927,25 +1065,43 @@ class InstagramBot:
                         uid_to_block = str(p_info.get("id") or "")
                 if not uid_to_block.isdigit():
                     await self.reply(
-                        thread_id, f"Không tìm thấy UID cho @{clean_target}.", reply_to_id=msg_id
+                        thread_id,
+                        f"Không tìm thấy UID cho @{clean_target}.",
+                        reply_to_id=msg_id,
                     )
                 elif cmd == "block":
-                    await block_user(self.session, uid_to_block, client=self.http_client)
-                    await self.reply(thread_id, f"🚫 Đã chặn #{uid_to_block} (@{clean_target}).")
+                    await block_user(
+                        self.session, uid_to_block, client=self.http_client
+                    )
+                    await self.reply(
+                        thread_id, f"🚫 Đã chặn #{uid_to_block} (@{clean_target})."
+                    )
                 else:
-                    await unblock_user(self.session, uid_to_block, client=self.http_client)
-                    await self.reply(thread_id, f"✅ Đã bỏ chặn #{uid_to_block} (@{clean_target}).")
+                    await unblock_user(
+                        self.session, uid_to_block, client=self.http_client
+                    )
+                    await self.reply(
+                        thread_id, f"✅ Đã bỏ chặn #{uid_to_block} (@{clean_target})."
+                    )
             elif cmd == "like" and arg:
-                await like_media(self.session, arg, unlike=False, client=self.http_client)
+                await like_media(
+                    self.session, arg, unlike=False, client=self.http_client
+                )
                 await self.reply(thread_id, f"❤️ Đã like bài viết {arg}.")
             elif cmd == "unlike" and arg:
-                await like_media(self.session, arg, unlike=True, client=self.http_client)
+                await like_media(
+                    self.session, arg, unlike=True, client=self.http_client
+                )
                 await self.reply(thread_id, f"💔 Đã bỏ like bài viết {arg}.")
             elif cmd == "save" and arg:
-                await save_media(self.session, arg, unsave=False, client=self.http_client)
+                await save_media(
+                    self.session, arg, unsave=False, client=self.http_client
+                )
                 await self.reply(thread_id, f"🔖 Đã lưu bài viết {arg}.")
             elif cmd == "unsave" and arg:
-                await save_media(self.session, arg, unsave=True, client=self.http_client)
+                await save_media(
+                    self.session, arg, unsave=True, client=self.http_client
+                )
                 await self.reply(thread_id, f"🗑️ Đã bỏ lưu bài viết {arg}.")
             elif cmd == "comment" and " " in arg:
                 target_media, comment_body = arg.split(" ", 1)
