@@ -110,7 +110,7 @@ flowchart LR
 ### 1. Clone repository & cài đặt Python package
 
 ```bash
-git clone --recurse-submodules https://github.com/0xshijn/igchat-v2.git
+git clone https://github.com/0xshijn/igchat-v2.git
 cd igchat-v2
 
 # Khởi tạo môi trường ảo Python
@@ -237,18 +237,21 @@ python main.py
 ```
 
 <details>
-<summary>📋 <b>Danh sách lệnh tích hợp sẵn trong bot (Bấm để xem chi tiết)</b></summary>
+<summary>📋 <b>Danh sách 54 lệnh tích hợp sẵn trong bot (Bấm để xem chi tiết)</b></summary>
 
 <br />
 
 | Nhóm | Lệnh | Mô tả |
 |---|---|---|
-| **Hệ thống** | `/ping`, `/help`, `/info`, `/status`, `/uptime` | Kiểm tra trạng thái hoạt động, thời gian chạy, danh sách lệnh |
-| **Tin nhắn** | `/echo`, `/react`, `/edit`, `/unsend`, `/quote` | Lặp lại nội dung, thả reaction, chỉnh sửa hoặc thu hồi tin nhắn |
-| **Quản trị Nhóm** | `/rename`, `/add`, `/kick`, `/mute`, `/theme`, `/title` | Đổi tên nhóm chat, thêm/xóa thành viên, đổi chủ đề giao diện |
-| **Instagram Notes**| `/note`, `/delnote`, `/notes`, `/music` | Đăng Note 24h, tìm kiếm nhạc và xóa Note cá nhân |
-| **Mạng xã hội** | `/profile`, `/bio`, `/follow`, `/unfollow`, `/block` | Xem trang cá nhân, sửa bio, theo dõi, bỏ theo dõi và chặn người dùng |
-| **Bài viết & Media**| `/like`, `/save`, `/comment`, `/delcomment` | Thả tim, lưu bài viết, gửi bình luận và xóa bình luận |
+| **Hệ thống** | `/hi`, `/ping`, `/help`, `/id`, `/notif` | Kiểm tra kết nối, độ trễ, danh sách lệnh, thread/user ID, thông báo gần đây |
+| **Tin nhắn** | `/echo`, `/react`, `/edit`, `/unsend`, `/pin`, `/unpin`, `/forward`, `/more` | Lặp lại nội dung, thả cảm xúc, sửa/thu hồi tin E2EE, ghim/bỏ ghim, chuyển tiếp |
+| **Bảo vệ** | `/antiunsend [on\|off]`, `/antiedit [on\|off]` | Tự động phát hiện và cảnh báo khi có tin nhắn bị thu hồi hoặc chỉnh sửa |
+| **Quản trị Nhóm** | `/rename`, `/groupavatar`, `/tagall`, `/mute`, `/pinthread`, `/add`, `/kick`, `/promote`, `/demote`, `/leave` | Đổi tên nhóm, đổi avatar, tag tất cả, bật/tắt thông báo, thêm/xóa thành viên, thăng/hạ admin |
+| **Hộp thư** | `/inbox`, `/thread [số]`, `/requests`, `/accept <id>`, `/deletethread` | Xem hộp thư gần đây, lịch sử chat, duyệt tin nhắn chờ, xóa cuộc trò chuyện |
+| **Instagram Notes** | `/note [text\|clear\|list]`, `/delnote`, `/notes`, `/notemusic <bài>`, `/music <q>` | Đăng/xóa Note 24h, đăng Note kèm bài hát, tìm kiếm âm nhạc |
+| **Mạng xã hội** | `/info`, `/profile <user>`, `/bio <text>`, `/follow`, `/unfollow`, `/block`, `/unblock`, `/search <q>` | Xem profile, đổi bio bot, theo dõi/hủy theo dõi, chặn/bỏ chặn, tìm kiếm người dùng |
+| **Media & Tải về** | `/image <url>`, `/voice <url>`, `/media`, `/dl <url>`, `/autodl [on\|off]`, `/post`, `/upstory` | Gửi ảnh/voice từ URL, bóc tách link tải Reel/Post, tự động tải link IG, đăng bài lên Feed/Story |
+| **Tương tác Bài viết** | `/like <url>`, `/unlike`, `/comment <url> <text>`, `/save`, `/unsave` | Thả tim/bỏ tim bài viết, gửi bình luận, lưu/bỏ lưu bài viết Instagram |
 
 </details>
 
@@ -259,18 +262,19 @@ python main.py
 Dự án đạt 100% tiêu chuẩn chất lượng nghiêm ngặt trước khi đóng gói:
 
 ```bash
-# 1. Chạy toàn bộ test suite Python (38/38 tests passing)
+# 1. Chạy toàn bộ test suite Python (34 unit tests & 54 command runner tests)
 pytest tests/ -v
+python tests/test_all_commands.py
 
 # 2. Kiểm tra định dạng mã nguồn
 black --check .
 ruff check .
 
 # 3. Kiểm tra kiểu dữ liệu tĩnh nghiêm ngặt
-mypy igchat main.py scripts tests
+mypy igchat main.py scripts examples tests
 
 # 4. Kiểm tra Go Bridge
-cd bridge && go test -v ./... && go vet ./... && cd ..
+cd bridge && go test -v . ./bridge && go vet . ./bridge && cd ..
 ```
 
 ---

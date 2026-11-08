@@ -110,7 +110,7 @@ flowchart LR
 ### 1. Clone repository & install Python package
 
 ```bash
-git clone --recurse-submodules https://github.com/0xshijn/igchat-v2.git
+git clone https://github.com/0xshijn/igchat-v2.git
 cd igchat-v2
 
 # Create virtual environment
@@ -237,18 +237,21 @@ python main.py
 ```
 
 <details>
-<summary>📋 <b>Built-in Bot Commands (Click to expand)</b></summary>
+<summary>📋 <b>Complete 54 Built-in Bot Commands (Click to expand)</b></summary>
 
 <br />
 
 | Category | Command | Description |
 |---|---|---|
-| **System** | `/ping`, `/help`, `/info`, `/status`, `/uptime` | Check connection health, uptime latency, command list |
-| **Messaging** | `/echo`, `/react`, `/edit`, `/unsend`, `/quote` | Echo message, add reaction, edit or recall sent messages |
-| **Group Admin** | `/rename`, `/add`, `/kick`, `/mute`, `/theme`, `/title` | Change group title, add/remove members, switch thread theme |
-| **Instagram Notes**| `/note`, `/delnote`, `/notes`, `/music` | Publish 24h Notes, search background music, delete active Note |
-| **Social** | `/profile`, `/bio`, `/follow`, `/unfollow`, `/block` | View profiles, update bio, follow, unfollow, and block users |
-| **Posts & Media** | `/like`, `/save`, `/comment`, `/delcomment` | Like media, bookmark post, post comment, delete comment |
+| **System** | `/hi`, `/ping`, `/help`, `/id`, `/notif` | Healthcheck, uptime latency, command guide, thread/user IDs, recent activity |
+| **Messaging** | `/echo`, `/react`, `/edit`, `/unsend`, `/pin`, `/unpin`, `/forward`, `/more` | Echo text, add reaction, edit/recall E2EE messages, pin thread, forward |
+| **Protection** | `/antiunsend [on\|off]`, `/antiedit [on\|off]` | Real-time detection & alert when someone unsends or edits a message |
+| **Group Admin** | `/rename`, `/groupavatar`, `/tagall`, `/mute`, `/pinthread`, `/add`, `/kick`, `/promote`, `/demote`, `/leave` | Rename group, change avatar, mention all, mute, add/kick members, admin promote/demote |
+| **Inbox & Threads** | `/inbox`, `/thread [n]`, `/requests`, `/accept <id>`, `/deletethread` | Recent inbox threads, chat history, approve pending message requests, delete conversation |
+| **Instagram Notes** | `/note [text\|clear\|list]`, `/delnote`, `/notes`, `/notemusic <title>`, `/music <q>` | Create/delete 24h Notes, publish Notes with background songs, search music catalog |
+| **Social & Users** | `/info`, `/profile <user>`, `/bio <text>`, `/follow`, `/unfollow`, `/block`, `/unblock`, `/search <q>` | User profile card, update bot bio, follow/unfollow, block/unblock, user search |
+| **Media & Downloader** | `/image <url>`, `/voice <url>`, `/media`, `/dl <url>`, `/autodl [on\|off]`, `/post`, `/upstory` | Send photo/voice from URL, extract Reels/Posts direct media URL, auto-dl IG links, post to feed/story |
+| **Post Interactions** | `/like <url>`, `/unlike`, `/comment <url> <text>`, `/save`, `/unsave` | Like/unlike media, publish comments, bookmark/unbookmark Instagram posts |
 
 </details>
 
@@ -259,18 +262,19 @@ python main.py
 The project adheres to strict production engineering standards:
 
 ```bash
-# 1. Run complete Python test suite (38/38 passing)
+# 1. Run complete Python test suite (34 unit tests & 54 command runner tests)
 pytest tests/ -v
+python tests/test_all_commands.py
 
 # 2. Verify code style & formatting
 black --check .
 ruff check .
 
 # 3. Strict static type analysis
-mypy igchat main.py scripts tests
+mypy igchat main.py scripts examples tests
 
 # 4. Run Go Bridge test suite
-cd bridge && go test -v ./... && go vet ./... && cd ..
+cd bridge && go test -v . ./bridge && go vet . ./bridge && cd ..
 ```
 
 ---
