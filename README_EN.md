@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Version-v3.0.0-f59e0b?style=flat-square" alt="Version 3.0.0" />
 </p>
 
-[🇻🇳 Tiếng Việt](README.md) · [📖 API Reference](DOCS.md) · [🔀 Flowchart](FLOWCHART.md) · [🧠 Mindmap](mindmap-mermaid.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Bug Reports](https://github.com/0xshijn/igchat-v2/issues)
+[🇻🇳 Tiếng Việt](README.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Bug Reports](https://github.com/0xshijn/igchat-v2/issues)
 
 </div>
 
@@ -36,12 +36,9 @@
 
 **IGChat-v2 (v3.0.0)** was designed and developed by **Phước Toàn (Shiin / [`0xshijn`](https://github.com/0xshijn))** as a comprehensive, independent, and accurate platform for automating **Instagram Direct** and Instagram social interactions.
 
-Completely distinct from legacy Messenger/Facebook derivatives (`fbchat`), **v3.0.0** completely eradicates all unrelated upstream contamination:
-- ❌ Zero legacy Facebook Comet GraphQL mutations.
-- ❌ Zero misplaced E2EE layers (`whatsmeow`, `libsignal`, `e2ee_device.json`).
-- ❌ Zero Facebook cookie dependencies (`c_user`, `xs`, `datr`).
+**v3.0.0** delivers a modern, optimized, and native platform engineered specifically for Instagram:
 - ✅ **100% Pure Instagram**: Native Instagram Direct DGW WebSocket, Slide GraphQL, and Polaris Web REST APIs.
-- ✅ **Professional Layered Architecture**: Async Python client (`igchat_v2`) paired with a Go bridge companion (`instameow`) communicating over line-delimited JSON-RPC 2.0.
+- ✅ **Professional Layered Architecture**: Async Python client (`igchat`) paired with a Go bridge companion (`instameow`) communicating over line-delimited JSON-RPC 2.0.
 
 ---
 
@@ -153,7 +150,6 @@ python scripts/smoke_bridge_rpc.py build/igchat-bridge.exe --expected-version 3.
 ```python
 import asyncio
 from igchat.auth import bootstrap_session
-from igchat.bridge import BridgeProcess, BridgeActions
 from igchat.direct import send_text_message
 
 
@@ -163,24 +159,13 @@ async def main() -> None:
     session = await bootstrap_session(cookie_str)
     print(f"Logged in as: @{session.username} ({session.user_id})")
 
-    # 2. Launch Go Bridge process
-    process = BridgeProcess()
-    await process.start()
-    actions = BridgeActions(process)
-
-    # 3. Connect to Instagram Direct
-    await actions.connect(session.raw_cookies)
-
-    # 4. Dispatch Direct message
+    # 2. Dispatch Direct message via Polaris Web GraphQL
     result = await send_text_message(
-        actions,
+        session,
         thread_id="340282366841710300949128134123456789012",
-        text="Hello from igchat-v2 v3.0.0!",
+        text="Hello from igchat v3.0.0!",
     )
-    print(f"Message sent! ID: {result.message_id}")
-
-    # 5. Clean up
-    await process.stop()
+    print(f"Message sent! ID: {result.get('message_id')}")
 
 
 if __name__ == "__main__":
@@ -191,13 +176,17 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
+from typing import Any
 from igchat.auth import bootstrap_session
 from igchat.direct import DirectListener
-from igchat.core.models import MessageEvent
 
 
-async def handle_message(event: MessageEvent) -> None:
-    print(f"[{event.thread_id}] @{event.sender_id}: {event.text}")
+async def handle_message(event: dict[str, Any]) -> None:
+    data = event.get("data", {})
+    thread_id = data.get("threadId") or data.get("thread_id")
+    sender_id = data.get("senderId") or data.get("sender_id")
+    text = data.get("text", "")
+    print(f"[{thread_id}] @{sender_id}: {text}")
 
 
 async def main() -> None:
@@ -215,7 +204,7 @@ if __name__ == "__main__":
 
 ---
 
-## 🤖 Running the Included Bot (`main.py` / `src/main.py`)
+## 🤖 Running the Included Bot (`main.py`)
 
 A full-featured Instagram bot with utility, group management, and social automation commands is included out of the box.
 
@@ -277,7 +266,7 @@ black --check .
 ruff check .
 
 # 3. Strict static type analysis
-mypy igchat src/main.py scripts tests
+mypy igchat main.py scripts tests
 
 # 4. Run Go Bridge test suite
 cd bridge && go test -v ./... && go vet ./... && cd ..

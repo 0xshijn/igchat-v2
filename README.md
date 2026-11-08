@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Version-v3.0.0-f59e0b?style=flat-square" alt="Version 3.0.0" />
 </p>
 
-[🇬🇧 English](README_EN.md) · [📖 Tài liệu API](DOCS.md) · [🔀 Flowchart](FLOWCHART.md) · [🧠 Mindmap](mindmap-mermaid.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Báo lỗi](https://github.com/0xshijn/igchat-v2/issues)
+[🇬🇧 English](README_EN.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Báo lỗi](https://github.com/0xshijn/igchat-v2/issues)
 
 </div>
 
@@ -36,12 +36,9 @@
 
 **IGChat-v2 (v3.0.0)** được thiết kế và phát triển bởi **Phước Toàn (Shiin / [`0xshijn`](https://github.com/0xshijn))** như một giải pháp toàn diện, độc lập và chuẩn xác để tự động hóa **Instagram Direct** và các tính năng tương tác mạng xã hội Instagram.
 
-Khác biệt hoàn toàn với các phiên bản tiền nhiệm hoặc các bản sao từ repo Facebook/Messenger (`fbchat`), **v3.0.0** loại bỏ 100% các tàn dư mã nguồn ngoại lai:
-- ❌ Không còn Comet GraphQL mutations giả danh của Facebook Desktop.
-- ❌ Không còn giao thức E2EE ngoại lai (`whatsmeow`, `libsignal`, `e2ee_device.json`).
-- ❌ Không còn kiểm tra cookie Facebook (`c_user`, `xs`, `datr`).
+**v3.0.0** mang đến nền tảng hiện đại, tối ưu và chuẩn xác dành riêng cho Instagram:
 - ✅ **100% Pure Instagram**: Sử dụng chuẩn Instagram Direct DGW WebSocket, Slide GraphQL, và Polaris Web REST API.
-- ✅ **Kiến trúc phân tầng chuyên nghiệp**: Python Async Client (`igchat_v2`) kết hợp Go Bridge companion (`instameow`) giao tiếp qua JSON-RPC 2.0 dòng.
+- ✅ **Kiến trúc phân tầng chuyên nghiệp**: Python Async Client (`igchat`) kết hợp Go Bridge companion (`instameow`) giao tiếp qua JSON-RPC 2.0 dòng.
 
 ---
 
@@ -153,7 +150,6 @@ python scripts/smoke_bridge_rpc.py build/igchat-bridge.exe --expected-version 3.
 ```python
 import asyncio
 from igchat.auth import bootstrap_session
-from igchat.bridge import BridgeProcess, BridgeActions
 from igchat.direct import send_text_message
 
 
@@ -163,24 +159,13 @@ async def main() -> None:
     session = await bootstrap_session(cookie_str)
     print(f"Logged in as: @{session.username} ({session.user_id})")
 
-    # 2. Khởi chạy Bridge Go
-    process = BridgeProcess()
-    await process.start()
-    actions = BridgeActions(process)
-
-    # 3. Kết nối Instagram Direct
-    await actions.connect(session.raw_cookies)
-
-    # 4. Gửi tin nhắn Direct
+    # 2. Gửi tin nhắn Direct qua Polaris Web GraphQL
     result = await send_text_message(
-        actions,
+        session,
         thread_id="340282366841710300949128134123456789012",
-        text="Hello from igchat-v2 v3.0.0!",
+        text="Hello from igchat v3.0.0!",
     )
-    print(f"Message sent! ID: {result.message_id}")
-
-    # 5. Dọn dẹp
-    await process.stop()
+    print(f"Message sent! ID: {result.get('message_id')}")
 
 
 if __name__ == "__main__":
@@ -191,13 +176,17 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
+from typing import Any
 from igchat.auth import bootstrap_session
 from igchat.direct import DirectListener
-from igchat.core.models import MessageEvent
 
 
-async def handle_message(event: MessageEvent) -> None:
-    print(f"[{event.thread_id}] @{event.sender_id}: {event.text}")
+async def handle_message(event: dict[str, Any]) -> None:
+    data = event.get("data", {})
+    thread_id = data.get("threadId") or data.get("thread_id")
+    sender_id = data.get("senderId") or data.get("sender_id")
+    text = data.get("text", "")
+    print(f"[{thread_id}] @{sender_id}: {text}")
 
 
 async def main() -> None:
@@ -215,7 +204,7 @@ if __name__ == "__main__":
 
 ---
 
-## 🤖 Khởi chạy Bot Mẫu (`main.py` / `src/main.py`)
+## 🤖 Khởi chạy Bot Mẫu (`main.py`)
 
 Dự án cung cấp sẵn khung bot hoàn chỉnh với đầy đủ các lệnh tiện ích và quản trị.
 
@@ -277,7 +266,7 @@ black --check .
 ruff check .
 
 # 3. Kiểm tra kiểu dữ liệu tĩnh nghiêm ngặt
-mypy igchat src/main.py scripts tests
+mypy igchat main.py scripts tests
 
 # 4. Kiểm tra Go Bridge
 cd bridge && go test -v ./... && go vet ./... && cd ..
