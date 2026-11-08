@@ -1,0 +1,124 @@
+"""
+Đường dẫn file:
+  src/_features/_instagram/_notification.py
+
+Mục đích:
+  - Lấy danh sách các thông báo (notification) gần đây.
+
+Cách hoạt động:
+  - Nạp dependency/guard cần thiết, thực hiện các async HTTP requests tới API nội bộ hoặc GraphQL của Instagram.
+  - Các thao tác request đều phải thông qua httpx.AsyncClient và module _core._utils để bảo đảm an toàn kết nối.
+  - Payload gửi đi/nhận về được xử lý JSON cẩn thận, bắt lỗi try-except đầy đủ để tránh crash hệ thống.
+
+File liên quan:
+  - src/main.py và các entrypoint khác.
+  - Phụ thuộc vào _core._session, _core._utils để khởi tạo và thao tác HTTP.
+
+Author: Shiin (Phước Toàn)
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import httpx
+
+from _core._utils import (
+    USER_AGENTS,
+    extract_csrftoken_from_cookie,
+    formAll,
+    post_form_json_async,
+)
+
+GRAPHQL_URL = "https://www.instagram.com/api/graphql/"
+IG_NEWS_INBOX_URL = "https://www.instagram.com/api/v1/news/inbox/"
+
+
+def _build_request(dataIGS: dict[str, Any]) -> dict[str, Any]:
+    data_form = formAll(dataIGS, "CometNotificationsDropdownQuery", 6770067089747450)
+    data_form["variables"] = json.dumps(
+        {"count": 15, "environment": "MAIN_SURFACE", "scale": 3},
+        separators=(",", ":"),
+    )
+    return data_form
+
+
+def _parse_response(payload: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(payload.get("old_stories"), list) or isinstance(
+        payload.get("new_stories"), list
+    ):
+        results: list[str] = []
+        for story in (payload.get("new_stories") or []) + (
+            payload.get("old_stories") or []
+        ):
+            if isinstance(story, dict):
+                args = story.get("args")
+                text = args.get("text") if isinstance(args, dict) else None
+                if text:
+                    results.append(f"{len(results) + 1}.{text}")
+        return {"success": 1, "NotificationResults": results}
+    try:
+        edges = payload["data"]["viewer"]["notifications_page"]["edges"]
+    except (KeyError, TypeError):
+        message = ((payload.get("errors") or [{}])[0]).get("message")
+        return {"error": 1, "messages": message or "Response thông báo không hợp lệ."}
+
+    results = []
+    for edge in edges if isinstance(edges, list) else []:
+        try:
+            text = edge["node"]["notif"]["body"]["text"]
+        except (KeyError, TypeError):
+            continue
+        results.append(f"{len(results) + 1}.{text}")
+    return {"success": 1, "NotificationResults": results}
+
+
+async def func(
+    dataIGS: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    try:
+        payload = await post_form_json_async(
+            GRAPHQL_URL,
+            _build_request(dataIGS),
+            dataIGS["cookieIGS"],
+            client=client,
+        )
+        return _parse_response(payload)
+    except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+        return {"error": 1, "messages": str(exc)}
+
+
+async def fetch_instagram_notifications(
+    dataIGS: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Lấy danh sách thông báo hoạt động gần đây trên Instagram qua `/api/v1/news/inbox/`."""
+    import random
+
+    cookie_str = str(dataIGS.get("cookieIGS") or dataIGS.get("cookieIGS") or "")
+    csrftoken = extract_csrftoken_from_cookie(cookie_str)
+    headers = {
+        "Referer": "https://www.instagram.com/",
+        "Origin": "https://www.instagram.com",
+        "User-Agent": random.choice(USER_AGENTS),
+        "Cookie": cookie_str,
+        "X-CSRFToken": csrftoken,
+        "X-IG-App-ID": "936619743392459",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    try:
+        if client is not None:
+            resp = await client.get(IG_NEWS_INBOX_URL, headers=headers, timeout=20.0)
+        else:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as temp_client:
+                resp = await temp_client.get(IG_NEWS_INBOX_URL, headers=headers)
+        resp.raise_for_status()
+        payload = json.loads(resp.text.removeprefix("for (;;);").strip())
+        return _parse_response(payload)
+    except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+        return {"error": 1, "messages": str(exc)}
+

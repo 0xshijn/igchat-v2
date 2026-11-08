@@ -1,0 +1,21 @@
+# ==============================================================================
+# Requirements — IG Farm Studio Pro & Hotmail OAuth2 Auto-Registrar (`buff_farm`)
+# 100% gói có sẵn Prebuilt Wheel cho Windows/Mini PC (Không cần Visual C++ Build Tools)
+# Tự động được kiểm tra & cài đặt khi chạy `python main.py`
+# ==============================================================================
+
+curl_cffi
+httpx
+requests
+PySocks
+websocket-client
+lxml
+cssselect
+ruyiPage
+Faker
+PyNaCl
+cryptography
+Pillow
+numpy
+PyYAML
+rich

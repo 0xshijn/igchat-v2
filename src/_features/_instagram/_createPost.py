@@ -1,0 +1,244 @@
+"""
+Đường dẫn file:
+  src/_features/_instagram/_createPost.py
+
+Mục đích:
+  - Tạo bài viết mới trên dòng thời gian (Timeline).
+
+Cách hoạt động:
+  - Nạp dependency/guard cần thiết, thực hiện các async HTTP requests tới API nội bộ hoặc GraphQL của Instagram.
+  - Các thao tác request đều phải thông qua httpx.AsyncClient và module _core._utils để bảo đảm an toàn kết nối.
+  - Payload gửi đi/nhận về được xử lý JSON cẩn thận, bắt lỗi try-except đầy đủ để tránh crash hệ thống.
+
+File liên quan:
+  - src/main.py và các entrypoint khác.
+  - Phụ thuộc vào _core._session, _core._utils để khởi tạo và thao tác HTTP.
+
+Author: Shiin (Phước Toàn)
+"""
+
+from __future__ import annotations
+
+import json
+import random
+import time
+from typing import Any
+
+import httpx
+
+from _core._utils import formAll, post_form_json_async
+
+_URL = "https://www.instagram.com/api/graphql/"
+_DOC_ID = 6534257523262244
+
+
+def _build_form(
+    dataIGS: dict[str, Any], newContents: str, attachmentID: str | int | None
+) -> dict[str, Any]:
+    if not str(newContents).strip():
+        raise ValueError("Nội dung bài viết không được để trống.")
+    if attachmentID is not None:
+        raise NotImplementedError(
+            "attachmentID chưa được hỗ trợ cho ComposerStoryCreateMutation; "
+            "không còn âm thầm bỏ qua tệp đính kèm."
+        )
+
+    data_form = formAll(dataIGS, "ComposerStoryCreateMutation", _DOC_ID)
+    data_form["variables"] = json.dumps(
+        {
+            "input": {
+                "composer_entry_point": "inline_composer",
+                "composer_source_surface": "timeline",
+                "source": "WWW",
+                "attachments": [],
+                "audience": {
+                    "privacy": {
+                        "allow": [],
+                        "base_state": "EVERYONE",
+                        "deny": [],
+                        "tag_expansion_state": "UNSPECIFIED",
+                    }
+                },
+                "message": {"ranges": [], "text": str(newContents)},
+                "with_tags_ids": [],
+                "inline_activities": [],
+                "explicit_place_id": "0",
+                "text_format_preset_id": "0",
+                "logging": {"composer_session_id": dataIGS["sessionID"]},
+                "navigation_data": {
+                    "attribution_id_v2": (
+                        "ProfileCometTimelineListViewRoot.react,"
+                        f"comet.profile.timeline.list,tap_bookmark,{int(time.time() * 1000)},"
+                        f"{dataIGS['jazoest']},{dataIGS['IGSID']}"
+                    )
+                },
+                "tracking": "[null]",
+                "actor_id": dataIGS["IGSID"],
+                "client_mutation_id": "1",
+            },
+            "displayCommentsFeedbackContext": None,
+            "displayCommentsContextEnableComment": None,
+            "displayCommentsContextIsAdPreview": None,
+            "displayCommentsContextIsAggregatedShare": None,
+            "displayCommentsContextIsStorySet": None,
+            "feedLocation": "TIMELINE",
+            "focusCommentID": None,
+            "scale": str(round(random.random() * 1024)),
+            "privacySelectorRenderLocation": "COMET_STREAM",
+            "renderLocation": "timeline",
+            "useDefaultActor": False,
+            "inviteShortLinkKey": None,
+            "isFeed": False,
+            "isFundraiser": False,
+            "isFunFactPost": False,
+            "isGroup": False,
+            "isEvent": False,
+            "isTimeline": True,
+            "isSocialLearning": False,
+            "isPageNewsFeed": False,
+            "isProfileReviews": False,
+            "isWorkSharedDraft": False,
+            "UFI2CommentsProvider_commentsKey": "ProfileCometTimelineRoute",
+            "hashtag": None,
+            "canUserManageOffers": False,
+            "__relay_internal__pv__IsWorkUserrelayprovider": False,
+            "__relay_internal__pv__IsMergQAPollsrelayprovider": False,
+            "__relay_internal__pv__StoriesArmadilloReplyEnabledrelayprovider": False,
+            "__relay_internal__pv__StoriesRingrelayprovider": False,
+        },
+        separators=(",", ":"),
+    )
+    return data_form
+
+
+def _parse_result(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        url = payload["data"]["story_create"]["story"]["url"]
+    except (KeyError, TypeError):
+        errors = payload.get("errors") or []
+        message = (
+            errors[0].get("message") if errors and isinstance(errors[0], dict) else None
+        )
+        return {
+            "error": 1,
+            "messages": message or "Instagram không trả về bài viết đã tạo.",
+        }
+    return {"success": 1, "messages": "Tạo bài viết thành công!", "urlPost": url}
+
+
+async def func(
+    dataIGS: dict[str, Any],
+    newContents: str,
+    attachmentID: str | int | None = None,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    payload = await post_form_json_async(
+        _URL,
+        _build_form(dataIGS, newContents, attachmentID),
+        dataIGS["cookieIGS"],
+        client=client,
+    )
+    return _parse_result(payload)
+
+
+async def publish_instagram_photo(
+    dataIGS: dict[str, Any],
+    file_or_url: str,
+    caption: str = "",
+    *,
+    is_story: bool = False,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Đăng ảnh mới lên Instagram Feed (`/api/v1/media/configure/`) hoặc Story 24h (`/api/v1/media/configure_to_story/`)."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    from _core._utils import USER_AGENTS, extract_csrftoken_from_cookie
+    from _messaging._attachments import upload_instagram_rupload
+
+    cookie_str = str(dataIGS.get("cookieIGS") or dataIGS.get("cookieIGS") or "")
+    csrftoken = extract_csrftoken_from_cookie(cookie_str)
+    temp_path: str | None = None
+    try:
+        target = str(file_or_url).strip()
+        if target.startswith(("http://", "https://")):
+            if client is not None:
+                dl_resp = await client.get(target, timeout=30.0, follow_redirects=True)
+            else:
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as dl_client:
+                    dl_resp = await dl_client.get(target)
+            dl_resp.raise_for_status()
+            fd, temp_path = tempfile.mkstemp(suffix=".jpg")
+            os.close(fd)
+            Path(temp_path).write_bytes(dl_resp.content)
+            upload_target = Path(temp_path)
+        else:
+            upload_target = Path(target)
+
+        up_res = await upload_instagram_rupload(
+            upload_target,
+            dataIGS,
+            media_type=1,
+            client=client,
+        )
+        upload_id = str(up_res.get("uploadID") or "")
+        if not upload_id:
+            return {"error": 1, "messages": "Upload ảnh RUpload không trả về upload_id."}
+
+        endpoint = (
+            "https://www.instagram.com/api/v1/media/configure_to_story/"
+            if is_story
+            else "https://www.instagram.com/api/v1/media/configure/"
+        )
+        form_data: dict[str, str] = {
+            "upload_id": upload_id,
+            "caption": str(caption or ""),
+            "source_type": "library",
+            "custom_accessibility_caption": "",
+            "retry_timeout": "",
+        }
+        if is_story:
+            form_data["configure_mode"] = "1"
+        headers = {
+            "Referer": "https://www.instagram.com/",
+            "Origin": "https://www.instagram.com",
+            "User-Agent": random.choice(USER_AGENTS),
+            "Cookie": cookie_str,
+            "X-CSRFToken": csrftoken,
+            "X-IG-App-ID": "936619743392459",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        if client is not None:
+            resp = await client.post(endpoint, data=form_data, headers=headers, timeout=30.0)
+        else:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as temp_client:
+                resp = await temp_client.post(endpoint, data=form_data, headers=headers)
+        resp.raise_for_status()
+        payload = json.loads(resp.text.removeprefix("for (;;);").strip())
+        media = payload.get("media") if isinstance(payload, dict) else None
+        if isinstance(payload, dict) and payload.get("status") == "ok" and isinstance(media, dict):
+            code = str(media.get("code") or "")
+            pk = str(media.get("pk") or media.get("id") or "")
+            url_post = f"https://www.instagram.com/p/{code}/" if code and not is_story else f"https://www.instagram.com/stories/{pk}/"
+            return {
+                "success": 1,
+                "messages": "Đăng Story 24h thành công!" if is_story else "Đăng bài viết Instagram thành công!",
+                "mediaID": pk,
+                "code": code,
+                "urlPost": url_post,
+            }
+        return {
+            "error": 1,
+            "messages": str(payload.get("message") or "Instagram từ chối configure media."),
+        }
+    except (httpx.HTTPError, OSError, ValueError, TypeError, KeyError) as exc:
+        return {"error": 1, "messages": str(exc)}
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+

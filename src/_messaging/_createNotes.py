@@ -1,0 +1,1028 @@
+"""
+Đường dẫn file:
+  src/_messaging/_createNotes.py
+
+Mục đích:
+  - Tạo hoặc cập nhật ghi chú (notes) trên Messenger.
+
+Cách hoạt động:
+  - Nạp dependency/guard cần thiết, thực hiện các async HTTP requests tới API nội bộ hoặc GraphQL của Instagram.
+  - Các thao tác request đều phải thông qua httpx.AsyncClient và module _core._utils để bảo đảm an toàn kết nối.
+  - Payload gửi đi/nhận về được xử lý JSON cẩn thận, bắt lỗi try-except đầy đủ để tránh crash hệ thống.
+
+File liên quan:
+  - src/main.py và các entrypoint khác.
+  - Phụ thuộc vào _core._session, _core._utils để khởi tạo và thao tác HTTP.
+
+Author: Shiin (Phước Toàn)
+"""
+
+from __future__ import annotations
+
+import httpx
+import json
+import re
+import uuid
+from typing import Any
+from _core._utils import (
+    formAll,
+    mainRequests,
+    generate_client_id,
+    send_request,
+    send_request_async,
+)
+
+# =====================================================================
+# Messenger Notes (the temporary status-like notes shown in Messenger)
+# Converted from ws3-fca/src/deltas/apis/messaging/notes.js
+# =====================================================================
+
+PRIVACY_ALIASES = {
+    "EVERYONE": "FRIENDS",  # Messenger Notes hiện trả/nhận visibility FRIENDS
+    "PUBLIC": "FRIENDS",
+}
+GRAPHQL_TIMEOUT = 45
+GRAPHQL_RETRIES = 2
+GRAPHQL_MUTATION_RETRIES = 0
+
+
+def _normalize_privacy(privacy: str | None) -> str:
+    return PRIVACY_ALIASES.get(
+        str(privacy or "FRIENDS").upper(), str(privacy or "FRIENDS").upper()
+    )
+
+
+def _error_response(resData: dict[str, Any]) -> dict[str, Any]:
+    errors = resData.get("errors")
+    if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+        error = errors[0]
+    elif isinstance(errors, dict):
+        error = errors
+    else:
+        error = {}
+    return {
+        "error": 1,
+        "messages": error.get("message") or "Instagram trả về lỗi GraphQL không hợp lệ.",
+        "details": error,
+    }
+
+
+def _request_error(
+    message: str,
+    exc: Exception | None = None,
+    friendly_name: str | None = None,
+    doc_id: int | str | None = None,
+) -> dict[str, Any]:
+    error = {
+        "message": message,
+        "friendly_name": friendly_name,
+        "doc_id": str(doc_id) if doc_id is not None else None,
+    }
+    if exc is not None:
+        error["exception"] = str(exc)
+    return {"errors": [error]}
+
+
+def _build_graphql_request(
+    dataIGS: dict[str, Any], friendly_name: str, doc_id: int, variables: dict[str, Any]
+) -> dict[str, Any]:
+    """Chuẩn bị request args cho GraphQL call."""
+    dataForm = formAll(dataIGS, friendly_name, doc_id)
+    dataForm["variables"] = json.dumps(variables)
+    request_args = mainRequests(
+        "https://www.instagram.com/api/graphql/",
+        dataForm,
+        dataIGS["cookieIGS"],
+    )
+    request_args["timeout"] = GRAPHQL_TIMEOUT
+    return request_args
+
+
+def _parse_graphql_text(text: str) -> dict[str, Any]:
+    if text.startswith("for (;;);"):
+        text = text.split("for (;;);", 1)[1]
+    try:
+        return json.loads(text)
+    except (ValueError, json.JSONDecodeError):
+        return {"errors": [{"message": "Invalid JSON response", "raw": text[:300]}]}
+
+
+def _missing_mutation_response(
+    message: str, response: dict[str, Any]
+) -> dict[str, Any]:
+    return {"error": 1, "messages": message, "raw": response}
+
+
+def _parse_create_response(
+    response: dict[str, Any], success_message: str, *, return_full_data: bool
+) -> dict[str, Any]:
+    if response.get("errors"):
+        return _error_response(response)
+
+    data = response.get("data")
+    node = (
+        (data.get("xfb_rich_status_create") or data.get("xdt_create_inbox_tray_item"))
+        if isinstance(data, dict)
+        else None
+    )
+    status = (
+        (node.get("status") if "status" in node else node.get("inbox_tray_item"))
+        if isinstance(node, dict)
+        else None
+    )
+    if not _is_nonempty_mutation_node(status):
+        return _missing_mutation_response(
+            "Instagram không trả về trạng thái tạo note hợp lệ.", response
+        )
+    return {
+        "success": 1,
+        "messages": success_message,
+        "data": data if return_full_data else status,
+    }
+
+
+def _parse_delete_response(
+    response: dict[str, Any], success_message: str, *, return_full_data: bool
+) -> dict[str, Any]:
+    if response.get("errors"):
+        return _error_response(response)
+
+    data = response.get("data")
+    node = (
+        (data.get("xfb_rich_status_delete") or data.get("xdt_delete_inbox_tray_item"))
+        if isinstance(data, dict)
+        else None
+    )
+    if not _is_nonempty_mutation_node(node):
+        return _missing_mutation_response(
+            "Instagram không trả về trạng thái xoá note hợp lệ.", response
+        )
+    return {
+        "success": 1,
+        "messages": success_message,
+        "data": data if return_full_data else node,
+    }
+
+
+def _is_nonempty_mutation_node(value: Any) -> bool:
+    if value is None or value is False:
+        return False
+    if isinstance(value, dict):
+        if not value:
+            return False
+        for field in ("success", "status"):
+            if field in value and not _is_nonempty_mutation_node(value[field]):
+                return False
+        for field in ("error", "error_message"):
+            if field in value and _is_nonempty_mutation_node(value[field]):
+                return False
+        return any(
+            field not in {"__typename", "client_mutation_id", "error", "error_message"}
+            and _is_nonempty_mutation_node(field_value)
+            for field, field_value in value.items()
+        )
+    if isinstance(value, str):
+        return value.strip().casefold() not in {
+            "",
+            "0",
+            "error",
+            "failed",
+            "failure",
+            "false",
+        }
+    if isinstance(value, (list, tuple, set)):
+        return bool(value)
+    return value != 0
+
+
+def _post_graphql(
+    dataIGS: dict[str, Any],
+    friendly_name: str,
+    doc_id: int,
+    variables: dict[str, Any],
+    timeout: int = GRAPHQL_TIMEOUT,
+    retries: int = GRAPHQL_RETRIES,
+) -> dict[str, Any]:
+    """Gửi 1 GraphQL request và trả về JSON đã parse."""
+    request_args = _build_graphql_request(dataIGS, friendly_name, doc_id, variables)
+    request_args["timeout"] = timeout
+
+    last_error: httpx.HTTPError | None = None
+    for attempt in range(retries + 1):
+        try:
+            response = send_request(request_args)
+            response.raise_for_status()
+            return _parse_graphql_text(response.text)
+        except httpx.TimeoutException as e:
+            last_error = e
+            if attempt < retries:
+                continue
+            return _request_error(
+                f"Instagram GraphQL request timed out after {timeout} seconds.",
+                e,
+                friendly_name,
+                doc_id,
+            )
+        except httpx.HTTPError as e:
+            last_error = e
+            if attempt < retries:
+                continue
+            return _request_error(
+                "Instagram GraphQL request failed.", e, friendly_name, doc_id
+            )
+
+    return _request_error(
+        "Instagram GraphQL request failed after retry.",
+        last_error,
+        friendly_name,
+        doc_id,
+    )
+
+
+async def _post_graphql_async(
+    dataIGS: dict[str, Any],
+    friendly_name: str,
+    doc_id: int,
+    variables: dict[str, Any],
+    timeout: int = GRAPHQL_TIMEOUT,
+    retries: int = GRAPHQL_RETRIES,
+) -> dict[str, Any]:
+    """Async version của _post_graphql."""
+    request_args = _build_graphql_request(dataIGS, friendly_name, doc_id, variables)
+    request_args["timeout"] = timeout
+
+    last_error: httpx.HTTPError | None = None
+    for attempt in range(retries + 1):
+        try:
+            response = await send_request_async(request_args)
+            response.raise_for_status()
+            return _parse_graphql_text(response.text)
+        except httpx.TimeoutException as e:
+            last_error = e
+            if attempt < retries:
+                continue
+            return _request_error(
+                f"Instagram GraphQL request timed out after {timeout} seconds.",
+                e,
+                friendly_name,
+                doc_id,
+            )
+        except httpx.HTTPError as e:
+            last_error = e
+            if attempt < retries:
+                continue
+            return _request_error(
+                "Instagram GraphQL request failed.", e, friendly_name, doc_id
+            )
+
+    return _request_error(
+        "Instagram GraphQL request failed after retry.",
+        last_error,
+        friendly_name,
+        doc_id,
+    )
+
+
+# ---------------------------------------------------------------------
+# CHECK
+# ---------------------------------------------------------------------
+def _checkNote_blocking(dataIGS: dict[str, Any]) -> dict[str, Any]:
+    """Kiểm tra note hiện tại của tài khoản đang đăng nhập."""
+    variables = {"scale": 2}
+    resData = _post_graphql(
+        dataIGS,
+        "MWInboxTrayNoteCreationDialogQuery",
+        30899655739648624,
+        variables,
+    )
+
+    if resData.get("errors"):
+        return _error_response(resData)
+
+    try:
+        currentNote = resData["data"]["viewer"]["actor"]["msgr_user_rich_status"]
+    except (KeyError, TypeError):
+        currentNote = None
+
+    return {
+        "success": 1,
+        "messages": "Lấy note hiện tại thành công.",
+        "data": currentNote,
+    }
+
+
+# ---------------------------------------------------------------------
+# CREATE
+# ---------------------------------------------------------------------
+def _createNote_blocking(
+    dataIGS: dict[str, Any], text: str, privacy: str = "FRIENDS"
+) -> dict[str, Any]:
+    """Tạo một note mới (mặc định tồn tại 24 giờ)."""
+    variables = {
+        "input": {
+            "client_mutation_id": generate_client_id(),
+            "actor_id": str(dataIGS["IGSID"]),
+            "description": text,
+            "duration": 86400,  # 24 giờ
+            "note_type": "TEXT_NOTE",
+            "privacy": _normalize_privacy(privacy),
+            "session_id": generate_client_id(),
+        }
+    }
+    resData = _post_graphql(
+        dataIGS,
+        "MWInboxTrayNoteCreationDialogCreationStepContentMutation",
+        24060573783603122,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    return _parse_create_response(
+        resData, "Tạo note thành công.", return_full_data=False
+    )
+
+
+# ---------------------------------------------------------------------
+# DELETE
+# ---------------------------------------------------------------------
+def _deleteNote_blocking(
+    dataIGS: dict[str, Any],
+    noteID: str,
+) -> dict[str, Any]:
+    """Xoá note theo ID."""
+    variables = {
+        "input": {
+            "client_mutation_id": generate_client_id(),
+            "actor_id": str(dataIGS["IGSID"]),
+            "rich_status_id": str(noteID),
+        }
+    }
+    resData = _post_graphql(
+        dataIGS,
+        "useMWInboxTrayDeleteNoteMutation",
+        9532619970198958,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    return _parse_delete_response(
+        resData, "Xoá note thành công.", return_full_data=False
+    )
+
+
+# ---------------------------------------------------------------------
+# RECREATE (delete + create)
+# ---------------------------------------------------------------------
+def re_createNote_blocking(
+    dataIGS: dict[str, Any], oldNoteID: str, newText: str, privacy: str = "FRIENDS"
+) -> dict[str, Any]:
+    """Xoá note cũ rồi tạo note mới."""
+    deleted = _deleteNote_blocking(dataIGS, oldNoteID)
+    if deleted.get("error"):
+        return deleted
+
+    created = _createNote_blocking(dataIGS, newText, privacy=privacy)
+    if created.get("error"):
+        return created
+
+    return {
+        "success": 1,
+        "messages": "Tạo lại note thành công.",
+        "data": {
+            "deleted": deleted.get("data"),
+            "created": created.get("data"),
+        },
+    }
+
+
+# ---------------------------------------------------------------------
+# Default entry point (theo style igchat-v2): func(dataIGS, action, ...)
+# ---------------------------------------------------------------------
+
+
+async def checkNote(dataIGS: dict[str, Any]) -> dict[str, Any]:
+    variables = {"scale": 2}
+    resData = await _post_graphql_async(
+        dataIGS,
+        "MWInboxTrayNoteCreationDialogQuery",
+        30899655739648624,
+        variables,
+    )
+
+    if resData.get("errors"):
+        return _error_response(resData)
+
+    try:
+        has_note = resData["data"]["viewer"]["notes_management_info"]["has_notes"]
+    except (KeyError, TypeError):
+        has_note = False
+
+    return {
+        "success": 1,
+        "messages": "Kiểm tra note hiện tại thành công.",
+        "data": {"has_notes": has_note},
+    }
+
+
+async def createNote(
+    dataIGS: dict[str, Any], text: str, privacy: str = "FRIENDS"
+) -> dict[str, Any]:
+    if not text:
+        return {"error": 1, "messages": "Text cannot be empty."}
+
+    variables = {
+        "input": {
+            "client_mutation_id": generate_client_id(),
+            "actor_id": str(dataIGS["IGSID"]),
+            "text": str(text),
+            "duration": 86400,
+            "note_type": "TEXT_NOTE",
+            "privacy": _normalize_privacy(privacy),
+            "session_id": generate_client_id(),
+        }
+    }
+    resData = await _post_graphql_async(
+        dataIGS,
+        "MWInboxTrayNoteCreationDialogCreationStepContentMutation",
+        24060573783603122,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    return _parse_create_response(
+        resData, "Tạo note mới thành công.", return_full_data=True
+    )
+
+
+async def deleteNote(dataIGS: dict[str, Any], noteID: str) -> dict[str, Any]:
+    if not noteID:
+        return {"error": 1, "messages": "noteID cannot be empty."}
+
+    variables = {
+        "input": {
+            "client_mutation_id": generate_client_id(),
+            "actor_id": str(dataIGS["IGSID"]),
+            "rich_status_id": str(noteID),
+        }
+    }
+    resData = await _post_graphql_async(
+        dataIGS,
+        "useMWInboxTrayDeleteNoteMutation",
+        9532619970198958,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    return _parse_delete_response(
+        resData, "Xoá note thành công.", return_full_data=True
+    )
+
+
+async def recreateNote(
+    dataIGS: dict[str, Any], oldNoteID: str, newText: str, privacy: str = "FRIENDS"
+) -> dict[str, Any]:
+    deleted = await deleteNote(dataIGS, oldNoteID)
+    if deleted.get("error"):
+        return deleted
+
+    created = await createNote(dataIGS, newText, privacy=privacy)
+    if created.get("error"):
+        return created
+
+    return {
+        "success": 1,
+        "messages": "Tạo lại note thành công.",
+        "data": {
+            "deleted": deleted.get("data"),
+            "created": created.get("data"),
+        },
+    }
+
+
+async def func(
+    dataIGS: dict[str, Any], action: str = "check", **kwargs: Any
+) -> dict[str, Any]:
+    action = (action or "check").lower()
+    if action == "check":
+        return await checkNote(dataIGS)
+    if action == "create":
+        return await createNote(
+            dataIGS, kwargs["text"], privacy=kwargs.get("privacy", "FRIENDS")
+        )
+    if action == "delete":
+        return await deleteNote(dataIGS, kwargs["noteID"])
+    if action == "recreate":
+        return await recreateNote(
+            dataIGS,
+            kwargs["oldNoteID"],
+            kwargs["newText"],
+            privacy=kwargs.get("privacy", "FRIENDS"),
+        )
+    return {"error": 1, "messages": f"Unknown action: {action}"}
+
+
+async def get_instagram_notes(
+    dataIGS: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Lấy danh sách Instagram Notes 24h hiện tại qua `IGDInboxTrayQuery` (`29231580869776032`)."""
+    import random
+    import re
+    from _core._utils import USER_AGENTS, extract_csrftoken_from_cookie
+
+    cookie_str = str(dataIGS.get("cookieIGS") or "")
+    viewer_igsid = str(dataIGS.get("IGSID") or "").strip()
+    ds_match = re.search(r"(?:^|;\s*)ds_user_id=(\d+)", cookie_str)
+    viewer_pk = ds_match.group(1) if ds_match else ""
+
+    res_gql = await _post_graphql_async(
+        dataIGS,
+        "IGDInboxTrayQuery",
+        29231580869776032,
+        {},
+    )
+    if isinstance(res_gql, dict) and not res_gql.get("errors"):
+        resp_node = (res_gql.get("data") or {}).get("response")
+        tray_items = (
+            resp_node.get("inbox_tray_items")
+            if isinstance(resp_node, dict)
+            else None
+        )
+        if isinstance(tray_items, list):
+            normalized: list[dict[str, Any]] = []
+            for item in tray_items:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("inbox_tray_item_type") not in {None, "note"}:
+                    continue
+                note_id = str(
+                    item.get("inbox_tray_item_id") or item.get("id") or ""
+                ).strip()
+                pog_info = item.get("pog_info")
+                pog_users = (
+                    pog_info.get("pog_users")
+                    if isinstance(pog_info, dict)
+                    else None
+                )
+                pog_user: dict[str, Any] = (
+                    pog_users[0]
+                    if isinstance(pog_users, list)
+                    and pog_users
+                    and isinstance(pog_users[0], dict)
+                    else {}
+                )
+                raw_note_dict = item.get("note_dict")
+                note_dict: dict[str, Any] = (
+                    raw_note_dict
+                    if isinstance(raw_note_dict, dict)
+                    else {}
+                )
+                raw_text = str(note_dict.get("text") or item.get("text") or "").strip()
+                note_resp_info = note_dict.get("note_response_info")
+                music_resp = (
+                    note_resp_info.get("music_note_response_info")
+                    if isinstance(note_resp_info, dict)
+                    else None
+                )
+                music_info = (
+                    music_resp.get("music_info")
+                    if isinstance(music_resp, dict)
+                    else None
+                )
+                music_asset = (
+                    music_info.get("music_asset_info")
+                    if isinstance(music_info, dict)
+                    else None
+                )
+                music_title = (
+                    str(music_asset.get("title") or "").strip()
+                    if isinstance(music_asset, dict)
+                    else ""
+                )
+                music_artist = (
+                    str(music_asset.get("display_artist") or "").strip()
+                    if isinstance(music_asset, dict)
+                    else ""
+                )
+                music_url = (
+                    str(music_asset.get("progressive_download_url") or "").strip()
+                    if isinstance(music_asset, dict)
+                    else ""
+                )
+                music_label = ""
+                if music_title and music_artist:
+                    music_label = f"🎵 {music_title} — {music_artist}"
+                elif music_title:
+                    music_label = f"🎵 {music_title}"
+                if raw_text and music_label:
+                    text = f"{raw_text} ({music_label})"
+                elif music_label:
+                    text = music_label
+                else:
+                    text = raw_text
+                user_id = str(
+                    pog_user.get("id")
+                    or note_dict.get("author_id")
+                    or item.get("user_id")
+                    or ""
+                ).strip()
+                eimu_id = str(
+                    pog_user.get("interop_messaging_user_fbid") or ""
+                ).strip()
+                is_viewer = bool(
+                    (viewer_pk and user_id == viewer_pk)
+                    or (viewer_igsid and viewer_igsid in {user_id, eimu_id})
+                )
+                normalized.append(
+                    {
+                        "id": note_id,
+                        "inbox_tray_item_id": note_id,
+                        "text": text,
+                        "caption": raw_text,
+                        "music_title": music_title,
+                        "music_artist": music_artist,
+                        "music_url": music_url,
+                        "user_id": user_id,
+                        "eimu_id": eimu_id,
+                        "is_viewer": is_viewer,
+                        "user": pog_user or item.get("user") or {},
+                        "note_dict": note_dict,
+                    }
+                )
+            return {
+                "success": 1,
+                "messages": "Lấy danh sách Instagram Notes thành công!",
+                "notes": normalized,
+            }
+
+    csrftoken = extract_csrftoken_from_cookie(cookie_str)
+    headers = {
+        "Referer": "https://www.instagram.com/direct/inbox/",
+        "Origin": "https://www.instagram.com",
+        "User-Agent": random.choice(USER_AGENTS),
+        "Cookie": cookie_str,
+        "X-CSRFToken": csrftoken,
+        "X-IG-App-ID": "936619743392459",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    try:
+        url = "https://www.instagram.com/api/v1/notes/get_notes/"
+        if client is not None:
+            resp = await client.get(url, headers=headers, timeout=20.0)
+        else:
+            async with httpx.AsyncClient(
+                timeout=20.0, follow_redirects=True
+            ) as temp_client:
+                resp = await temp_client.get(url, headers=headers)
+        resp.raise_for_status()
+        payload = _parse_graphql_text(resp.text)
+        items = payload.get("items") if isinstance(payload, dict) else []
+        return {
+            "success": 1,
+            "messages": "Lấy danh sách Instagram Notes thành công!",
+            "notes": items if isinstance(items, list) else [],
+        }
+    except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+        if isinstance(res_gql, dict) and res_gql.get("errors"):
+            return _error_response(res_gql)
+        return {"error": 1, "messages": str(exc)}
+
+
+async def search_instagram_music(
+    dataIGS: dict[str, Any],
+    query: str,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Tìm kiếm bài hát trên kho nhạc Instagram Notes qua `IGDComposerRichContentMusicSearchQuery` (`27152225807728809`)."""
+    clean_query = str(query or "").strip()
+    if not clean_query:
+        return {"error": 1, "messages": "Từ khóa tìm bài hát không được để trống."}
+    browse_session_id = str(uuid.uuid4())
+    variables = {
+        "params": {
+            "browse_session_id": browse_session_id,
+            "product": "IG_MUSIC_NOTES",
+            "q": clean_query,
+        }
+    }
+    resData = await _post_graphql_async(
+        dataIGS,
+        "IGDComposerRichContentMusicSearchQuery",
+        27152225807728809,
+        variables,
+    )
+    if not isinstance(resData, dict) or resData.get("errors"):
+        return _error_response(resData if isinstance(resData, dict) else {})
+    data_node = resData.get("data")
+    search_node = (
+        data_node.get("xfb_ig_audio_search")
+        if isinstance(data_node, dict)
+        else None
+    )
+    raw_items = (
+        search_node.get("items")
+        if isinstance(search_node, dict)
+        else None
+    )
+    alacorn_session_id = (
+        str(search_node.get("alacorn_session_id") or "").strip()
+        if isinstance(search_node, dict)
+        else ""
+    ) or str(uuid.uuid4())
+    tracks: list[dict[str, Any]] = []
+    for row in raw_items if isinstance(raw_items, list) else []:
+        if not isinstance(row, dict):
+            continue
+        track = row.get("track")
+        meta = row.get("metadata")
+        if not isinstance(track, dict):
+            continue
+        cluster_id = str(track.get("audio_cluster_id") or "").strip()
+        track_id = str(track.get("id") or "").strip()
+        asset_id = str(track.get("audio_asset_id") or track_id or cluster_id).strip()
+        if not cluster_id:
+            continue
+        allow_music = (
+            bool(meta.get("allow_media_creation_with_music", True))
+            if isinstance(meta, dict)
+            else True
+        )
+        tracks.append(
+            {
+                "id": track_id or cluster_id,
+                "audio_asset_id": asset_id,
+                "audio_cluster_id": cluster_id,
+                "title": str(track.get("title") or "").strip(),
+                "display_artist": str(track.get("display_artist") or "").strip(),
+                "duration_in_ms": int(track.get("duration_in_ms") or 30000),
+                "preview_url": str(track.get("web_30s_preview_download_url") or "").strip(),
+                "cover_artwork_uri": str(track.get("cover_artwork_uri") or "").strip(),
+                "is_explicit": bool(track.get("is_explicit", False)),
+                "allow_media_creation_with_music": allow_music,
+                "browse_session_id": browse_session_id,
+                "alacorn_session_id": alacorn_session_id,
+            }
+        )
+    return {
+        "success": 1,
+        "messages": f"Tìm thấy {len(tracks)} bài hát cho '{clean_query}'.",
+        "tracks": tracks,
+        "browse_session_id": browse_session_id,
+        "alacorn_session_id": alacorn_session_id,
+    }
+
+
+async def create_instagram_music_note(
+    dataIGS: dict[str, Any],
+    query_or_cluster_id: str,
+    text: str = "",
+    *,
+    audience: int = 0,
+    start_time_ms: int = 0,
+    duration_ms: int = 30000,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Tạo Instagram Note 24h kèm bài hát (Music Note, `note_style: 1`)."""
+    raw_target = str(query_or_cluster_id or "").strip()
+    if not raw_target:
+        return {"error": 1, "messages": "Tên bài hát hoặc audio_cluster_id không được để trống."}
+    clean_text = str(text or "").strip()[:80]
+    audio_cluster_id = ""
+    audio_asset_id = ""
+    browse_session_id = str(uuid.uuid4())
+    alacorn_session_id = str(uuid.uuid4())
+    track_duration = duration_ms
+    matched_title = ""
+    matched_artist = ""
+
+    m_url = re.search(r"instagram\.com/reels/audio/(\d+)", raw_target)
+    if m_url:
+        audio_cluster_id = m_url.group(1)
+        audio_asset_id = audio_cluster_id
+    elif raw_target.isdigit():
+        audio_cluster_id = raw_target
+        audio_asset_id = raw_target
+    else:
+        search_res = await search_instagram_music(dataIGS, raw_target, client=client)
+        if search_res.get("error"):
+            return search_res
+        tracks = search_res.get("tracks") or []
+        chosen: dict[str, Any] | None = None
+        for t in tracks:
+            if isinstance(t, dict) and t.get("allow_media_creation_with_music", True):
+                chosen = t
+                break
+        if chosen is None and tracks and isinstance(tracks[0], dict):
+            chosen = tracks[0]
+        if chosen is None:
+            return {
+                "error": 1,
+                "messages": f"Không tìm thấy bài hát nào khớp với '{raw_target}' trên Instagram.",
+            }
+        audio_cluster_id = str(chosen.get("audio_cluster_id") or "").strip()
+        audio_asset_id = str(chosen.get("audio_asset_id") or audio_cluster_id).strip()
+        browse_session_id = str(chosen.get("browse_session_id") or browse_session_id)
+        alacorn_session_id = str(chosen.get("alacorn_session_id") or alacorn_session_id)
+        track_duration = min(30000, max(1000, int(chosen.get("duration_in_ms") or duration_ms)))
+        matched_title = str(chosen.get("title") or "").strip()
+        matched_artist = str(chosen.get("display_artist") or "").strip()
+
+    variables = {
+        "input": {
+            "additional_params": {
+                "note_create_params": {
+                    "note_create_info": {
+                        "music_note_create_info": {
+                            "alacorn_session_id": alacorn_session_id,
+                            "audio_asset_id": audio_asset_id,
+                            "audio_cluster_id": audio_cluster_id,
+                            "browse_session_id": browse_session_id,
+                            "duration": min(30000, max(1000, int(track_duration))),
+                            "start_time": max(0, int(start_time_ms)),
+                        }
+                    },
+                    "note_style": 1,
+                    "text": clean_text,
+                }
+            },
+            "audience": int(audience),
+            "inbox_tray_item_type": "note",
+        }
+    }
+    resData = await _post_graphql_async(
+        dataIGS,
+        "usePolarisCreateInboxTrayItemSubmitMutation",
+        28592645767037889,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    if isinstance(resData, dict) and not resData.get("errors"):
+        data_node = resData.get("data")
+        create_node = (
+            data_node.get("xdt_create_inbox_tray_item")
+            if isinstance(data_node, dict)
+            else None
+        )
+        item = (
+            create_node.get("inbox_tray_item")
+            if isinstance(create_node, dict)
+            else None
+        )
+        if isinstance(item, dict) and item.get("inbox_tray_item_id"):
+            note_dict = item.get("note_dict")
+            resp_info = (
+                note_dict.get("note_response_info")
+                if isinstance(note_dict, dict)
+                else None
+            )
+            music_resp = (
+                resp_info.get("music_note_response_info")
+                if isinstance(resp_info, dict)
+                else None
+            )
+            music_info = (
+                music_resp.get("music_info")
+                if isinstance(music_resp, dict)
+                else None
+            )
+            asset_info = (
+                music_info.get("music_asset_info")
+                if isinstance(music_info, dict)
+                else None
+            )
+            if isinstance(asset_info, dict):
+                matched_title = str(asset_info.get("title") or matched_title).strip()
+                matched_artist = str(asset_info.get("display_artist") or matched_artist).strip()
+            return {
+                "success": 1,
+                "messages": "Đăng Instagram Note nhạc 24h thành công!",
+                "noteID": str(item.get("inbox_tray_item_id") or ""),
+                "music_title": matched_title,
+                "music_artist": matched_artist,
+                "audio_cluster_id": audio_cluster_id,
+                "text": clean_text,
+                "data": item,
+            }
+    return _parse_create_response(
+        resData, "Đăng Instagram Note nhạc 24h thành công!", return_full_data=True
+    )
+
+
+async def create_instagram_note(
+    dataIGS: dict[str, Any],
+    text: str,
+    *,
+    audience: int = 0,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Tạo Instagram Note 24h mới qua `usePolarisCreateInboxTrayItemSubmitMutation` (`28592645767037889`)."""
+    clean_text = str(text or "").strip()
+    if not clean_text:
+        return {"error": 1, "messages": "Nội dung Note không được để trống."}
+    variables = {
+        "input": {
+            "additional_params": {
+                "note_create_params": {
+                    "note_create_info": None,
+                    "note_style": 0,
+                    "text": clean_text[:80],
+                }
+            },
+            "audience": int(audience),
+            "inbox_tray_item_type": "note",
+        }
+    }
+    resData = await _post_graphql_async(
+        dataIGS,
+        "usePolarisCreateInboxTrayItemSubmitMutation",
+        28592645767037889,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    if isinstance(resData, dict) and not resData.get("errors"):
+        data_node = resData.get("data")
+        create_node = (
+            data_node.get("xdt_create_inbox_tray_item")
+            if isinstance(data_node, dict)
+            else None
+        )
+        item = (
+            create_node.get("inbox_tray_item")
+            if isinstance(create_node, dict)
+            else None
+        )
+        if isinstance(item, dict) and item.get("inbox_tray_item_id"):
+            return {
+                "success": 1,
+                "messages": "Đăng Instagram Note 24h thành công!",
+                "noteID": str(item.get("inbox_tray_item_id") or ""),
+                "data": item,
+            }
+    return _parse_create_response(
+        resData, "Đăng Instagram Note 24h thành công!", return_full_data=True
+    )
+
+
+async def delete_instagram_note(
+    dataIGS: dict[str, Any],
+    note_id: str | int,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Xoá Instagram Note 24h theo ID qua `usePolarisDeleteInboxTrayItemSubmitMutation` (`28419182984337833`)."""
+    clean_id = str(note_id or "").strip()
+    if not clean_id:
+        return {"error": 1, "messages": "note_id không được để trống."}
+    variables = {"inbox_tray_item_id": clean_id}
+    resData = await _post_graphql_async(
+        dataIGS,
+        "usePolarisDeleteInboxTrayItemSubmitMutation",
+        28419182984337833,
+        variables,
+        retries=GRAPHQL_MUTATION_RETRIES,
+    )
+    if isinstance(resData, dict) and not resData.get("errors"):
+        data_node = resData.get("data")
+        del_node = (
+            data_node.get("xdt_delete_inbox_tray_item")
+            if isinstance(data_node, dict)
+            else None
+        )
+        if isinstance(del_node, dict) and del_node.get("success"):
+            return {
+                "success": 1,
+                "messages": "Đã xoá Instagram Note!",
+                "noteID": clean_id,
+                "data": del_node,
+            }
+    return _parse_delete_response(
+        resData, "Đã xoá Instagram Note!", return_full_data=True
+    )
+
+
+
+""" Hướng dẫn sử dụng (Tutorial)
+
+* Dữ liệu yêu cầu (args):
+
+     - dataIGS: lấy từ _core._session.dataGetHome(setCookies)
+     - action: "check" / "create" / "delete" / "recreate"
+     - text / privacy / noteID / oldNoteID / newText: tuỳ theo action
+
+* Ví dụ:
+
+     from _core._session import dataGetHome
+     from _messaging import _createNotes
+
+     dataIGS = dataGetHome("<cookie Instagram>")
+     _createNotes.checkNote(dataIGS)
+     _createNotes.createNote(dataIGS, "Hello world", privacy="FRIENDS")
+     _createNotes.deleteNote(dataIGS, "<note_id>")
+     _createNotes.recreateNote(dataIGS, "<old_note_id>", "New note text")
+
+* Kết quả trả về:
+     - { "success": 1, "messages": "...", "data": {...} } khi thành công
+     - { "error": 1, "messages": "..." } khi thất bại
+
+* Thông tin tác giả:
+     ✓ Convert from ws3-fca (notes.js by @ChoruOfficial) -> igchat-v2 style
+     ✓ Tôn trọng tác giả ❤️
+"""
