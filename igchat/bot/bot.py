@@ -964,8 +964,14 @@ class InstagramBot:
 async def run_bot(config_path: str | Path | None = None) -> int:
     """Bootstrap Instagram session from env or config file and run InstagramBot."""
     configure_utf8_console()
-    default_cfg = Path(__file__).resolve().parents[2] / "config.json"
-    cfg_path = Path(config_path) if config_path else default_cfg
+    if config_path:
+        cfg_path = Path(config_path).resolve()
+    else:
+        root_dir = Path(__file__).resolve().parents[1]
+        cfg_cand = root_dir / "config.json"
+        if not cfg_cand.is_file() and len(Path(__file__).resolve().parents) > 2:
+            cfg_cand = Path(__file__).resolve().parents[2] / "config.json"
+        cfg_path = cfg_cand
 
     env_cookies = EnvSessionStorage().load_cookies()
     config: dict[str, Any] = {
@@ -982,7 +988,7 @@ async def run_bot(config_path: str | Path | None = None) -> int:
 
     if not cookies:
         safe_print(
-            "[igchat-v2] Chưa có cookie Instagram. Hãy đặt IGCHAT_COOKIE hoặc điền src/config.json."
+            "[igchat] Chưa có cookie Instagram. Hãy đặt IGCHAT_COOKIE hoặc điền config.json."
         )
         return 1
 

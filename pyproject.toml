@@ -47,7 +47,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/0xshijn/igchat-v2"
-Documentation = "https://github.com/0xshijn/igchat-v2/blob/main/DOCS.md"
+Documentation = "https://github.com/0xshijn/igchat-v2#readme"
 Repository = "https://github.com/0xshijn/igchat-v2"
 Issues = "https://github.com/0xshijn/igchat-v2/issues"
 Changelog = "https://github.com/0xshijn/igchat-v2/blob/main/CHANGELOG.md"
@@ -65,11 +65,11 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/igchat_v2"]
+packages = ["igchat"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src/igchat_v2/**",
+    "/igchat/**",
     "/README.md",
     "/README_EN.md",
     "/CHANGELOG.md",
@@ -101,19 +101,18 @@ line-length = 88
 
 [tool.mypy]
 python_version = "3.10"
-mypy_path = "src"
+mypy_path = "."
 explicit_package_bases = true
 ignore_missing_imports = true
 warn_unused_configs = true
 files = [
-    "src/igchat_v2",
-    "src/main.py",
-    "scripts",
+    "igchat",
+    "main.py",
     "tests",
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "."]
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

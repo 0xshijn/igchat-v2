@@ -1,20 +1,20 @@
-"""Unit tests for igchat_v2.social features."""
+"""Unit tests for igchat.social features."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from igchat_v2.core.models import InstagramSession
-from igchat_v2.social.friendships import (
+from igchat.core.models import InstagramSession
+from igchat.social.friendships import (
     block_user,
     follow_user,
     remove_follower,
     unblock_user,
     unfollow_user,
 )
-from igchat_v2.social.notifications import fetch_notifications
-from igchat_v2.social.posts import (
+from igchat.social.notifications import fetch_notifications
+from igchat.social.posts import (
     comment_media,
     delete_comment,
     like_media,
@@ -23,8 +23,8 @@ from igchat_v2.social.posts import (
     save_media,
     shortcode_to_media_id,
 )
-from igchat_v2.social.profile import change_bio, get_user_profile
-from igchat_v2.social.search import search_users
+from igchat.social.profile import change_bio, get_user_profile
+from igchat.social.search import search_users
 
 
 def test_shortcode_conversions() -> None:

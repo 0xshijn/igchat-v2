@@ -28,7 +28,7 @@
 > *"Pwn the protocol, dissect the wire, automate the unscriptable."* — **0xshijn**
 
 > [!WARNING]
-> **IGChat-v2** is an unofficial client intended for protocol research and Instagram Direct automation. It authenticates using account session cookies. Never commit configuration files containing credentials (`src/config.json`) or expose your `sessionid` to public environments.
+> **IGChat-v2** is an unofficial client intended for protocol research and Instagram Direct automation. It authenticates using account session cookies. Never commit configuration files containing credentials (`config.json`) or expose your `sessionid` to public environments.
 
 ---
 
@@ -76,12 +76,12 @@ Completely distinct from legacy Messenger/Facebook derivatives (`fbchat`), **v3.
 
 ```mermaid
 flowchart LR
-    App["Python App / Bot"] --> BotMod["igchat_v2.bot"]
-    BotMod --> DirectMod["igchat_v2.direct"]
-    BotMod --> SocialMod["igchat_v2.social"]
+    App["Python App / Bot"] --> BotMod["igchat.bot"]
+    BotMod --> DirectMod["igchat.direct"]
+    BotMod --> SocialMod["igchat.social"]
 
-    DirectMod --> BridgeMod["igchat_v2.bridge"]
-    DirectMod --> CoreMod["igchat_v2.core"]
+    DirectMod --> BridgeMod["igchat.bridge"]
+    DirectMod --> CoreMod["igchat.core"]
     SocialMod --> CoreMod
     
     BridgeMod <-->|"JSON-RPC 2.0 (stdin/stdout)"| BridgeGo["Go Bridge (igchat-bridge.exe)"]
@@ -91,12 +91,12 @@ flowchart LR
 
 | Package / Module | Path | Description |
 |---|---|---|
-| **`igchat_v2.core`** | [`src/igchat_v2/core/`](src/igchat_v2/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, private file permissions, secret redaction |
-| **`igchat_v2.auth`** | [`src/igchat_v2/auth/`](src/igchat_v2/auth/) | Session bootstrap from cookies, secure storage, Web AJAX login with 2FA TOTP (`pyotp`) |
-| **`igchat_v2.bridge`** | [`src/igchat_v2/bridge/`](src/igchat_v2/bridge/) | Subprocess supervisor for Go Bridge over line JSON-RPC, generation-fencing, ReconnectPolicy with backoff |
-| **`igchat_v2.direct`** | [`src/igchat_v2/direct/`](src/igchat_v2/direct/) | Direct listener, send/edit/unsend message, reactions, thread & inbox management, 24h Notes, media rupload |
-| **`igchat_v2.social`** | [`src/igchat_v2/social/`](src/igchat_v2/social/) | Profile, bio editor, friendship actions (follow/block), post interactions (like/save/comment), user search |
-| **`igchat_v2.bot`** | [`src/igchat_v2/bot/`](src/igchat_v2/bot/) | Comprehensive bot runtime, command router, spam filter, per-user rate limiter, OS signal handler |
+| **`igchat.core`** | [`igchat/core/`](igchat/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, private file permissions, secret redaction |
+| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Session bootstrap from cookies, secure storage, Web AJAX login with 2FA TOTP (`pyotp`) |
+| **`igchat.bridge`** | [`igchat/bridge/`](igchat/bridge/) | Subprocess supervisor for Go Bridge over line JSON-RPC, generation-fencing, ReconnectPolicy with backoff |
+| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, send/edit/unsend message, reactions, thread & inbox management, 24h Notes, media rupload |
+| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, bio editor, friendship actions (follow/block), post interactions (like/save/comment), user search |
+| **`igchat.bot`** | [`igchat/bot/`](igchat/bot/) | Comprehensive bot runtime, command router, spam filter, per-user rate limiter, OS signal handler |
 | **`bridge/`** | [`bridge/`](bridge/README.md) | Go bridge source code powered by `instameow`, compiling to `build/igchat-bridge.exe` |
 
 ---
@@ -152,9 +152,9 @@ python scripts/smoke_bridge_rpc.py build/igchat-bridge.exe --expected-version 3.
 
 ```python
 import asyncio
-from igchat_v2.auth import bootstrap_session
-from igchat_v2.bridge import BridgeProcess, BridgeActions
-from igchat_v2.direct import send_text_message
+from igchat.auth import bootstrap_session
+from igchat.bridge import BridgeProcess, BridgeActions
+from igchat.direct import send_text_message
 
 
 async def main() -> None:
@@ -191,9 +191,9 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from igchat_v2.auth import bootstrap_session
-from igchat_v2.direct import DirectListener
-from igchat_v2.core.models import MessageEvent
+from igchat.auth import bootstrap_session
+from igchat.direct import DirectListener
+from igchat.core.models import MessageEvent
 
 
 async def handle_message(event: MessageEvent) -> None:
@@ -224,10 +224,10 @@ A full-featured Instagram bot with utility, group management, and social automat
 Copy the example configuration:
 
 ```bash
-cp src/config.example.json src/config.json
+cp config.example.json config.json
 ```
 
-Edit `src/config.json`:
+Edit `config.json`:
 
 ```json
 {
@@ -277,7 +277,7 @@ black --check .
 ruff check .
 
 # 3. Strict static type analysis
-mypy src/igchat_v2 src/main.py scripts tests
+mypy igchat src/main.py scripts tests
 
 # 4. Run Go Bridge test suite
 cd bridge && go test -v ./... && go vet ./... && cd ..

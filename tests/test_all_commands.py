@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
-from igchat_v2.bot.bot import InstagramBot
-from igchat_v2.core.models import InstagramSession
-from igchat_v2.direct.listener import DirectListener
+from igchat.bot.bot import InstagramBot
+from igchat.core.models import InstagramSession
+from igchat.direct.listener import DirectListener
 
 
 async def run_all_command_tests() -> None:
@@ -207,7 +213,7 @@ async def run_all_command_tests() -> None:
         }
 
         try:
-            with patch("igchat_v2.core.http.download_public_bytes", return_value=b"fake_image_bytes"):
+            with patch("igchat.core.http.download_public_bytes", return_value=b"fake_image_bytes"):
                 await bot.handle_event(event)
 
             sent_reply = ""

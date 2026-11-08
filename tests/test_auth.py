@@ -1,4 +1,4 @@
-"""Unit tests for igchat_v2.auth storage, bootstrap and login."""
+"""Unit tests for igchat.auth storage, bootstrap and login."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from pathlib import Path
 import httpx
 import pytest
 
-from igchat_v2.auth.login import _build_enc_password, login_with_credentials
-from igchat_v2.auth.session import bootstrap_session
-from igchat_v2.auth.storage import EnvSessionStorage, FileSessionStorage
-from igchat_v2.core.errors import (
+from igchat.auth.login import _build_enc_password, login_with_credentials
+from igchat.auth.session import bootstrap_session
+from igchat.auth.storage import EnvSessionStorage, FileSessionStorage
+from igchat.core.errors import (
     CheckpointRequiredError,
     SessionCookieError,
 )
-from igchat_v2.core.models import InstagramSession
+from igchat.core.models import InstagramSession
 
 
 def test_file_session_storage(tmp_path: Path, mock_session: InstagramSession) -> None:

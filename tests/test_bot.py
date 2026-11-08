@@ -1,4 +1,4 @@
-"""Unit tests for igchat_v2.bot module."""
+"""Unit tests for igchat.bot module."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from igchat_v2.bot.bot import (
+from igchat.bot.bot import (
     InstagramBot,
     PerUserRateLimiter,
     _BoundedLRU,
     load_bot_config,
 )
-from igchat_v2.core.models import InstagramSession
-from igchat_v2.direct.listener import DirectListener
+from igchat.core.models import InstagramSession
+from igchat.direct.listener import DirectListener
 
 
 def test_bounded_lru() -> None:

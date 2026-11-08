@@ -28,7 +28,7 @@
 > *"Pwn the protocol, dissect the wire, automate the unscriptable."* — **0xshijn**
 
 > [!WARNING]
-> **IGChat-v2** là client không chính thức phục vụ mục đích nghiên cứu giao thức và tự động hóa Instagram Direct. Thư viện sử dụng cookie/phiên tài khoản cá nhân. Tuyệt đối không commit file chứa cookie (`src/config.json`) hoặc để lộ `sessionid` ra môi trường công cộng.
+> **IGChat-v2** là client không chính thức phục vụ mục đích nghiên cứu giao thức và tự động hóa Instagram Direct. Thư viện sử dụng cookie/phiên tài khoản cá nhân. Tuyệt đối không commit file chứa cookie (`config.json`) hoặc để lộ `sessionid` ra môi trường công cộng.
 
 ---
 
@@ -76,12 +76,12 @@ Khác biệt hoàn toàn với các phiên bản tiền nhiệm hoặc các bả
 
 ```mermaid
 flowchart LR
-    App["Ứng dụng Python / Bot"] --> BotMod["igchat_v2.bot"]
-    BotMod --> DirectMod["igchat_v2.direct"]
-    BotMod --> SocialMod["igchat_v2.social"]
+    App["Ứng dụng Python / Bot"] --> BotMod["igchat.bot"]
+    BotMod --> DirectMod["igchat.direct"]
+    BotMod --> SocialMod["igchat.social"]
 
-    DirectMod --> BridgeMod["igchat_v2.bridge"]
-    DirectMod --> CoreMod["igchat_v2.core"]
+    DirectMod --> BridgeMod["igchat.bridge"]
+    DirectMod --> CoreMod["igchat.core"]
     SocialMod --> CoreMod
     
     BridgeMod <-->|"JSON-RPC 2.0 (stdin/stdout)"| BridgeGo["Go Bridge (igchat-bridge.exe)"]
@@ -91,12 +91,12 @@ flowchart LR
 
 | Package / Module | Đường dẫn | Vai trò |
 |---|---|---|
-| **`igchat_v2.core`** | [`src/igchat_v2/core/`](src/igchat_v2/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, bảo mật file, redaction |
-| **`igchat_v2.auth`** | [`src/igchat_v2/auth/`](src/igchat_v2/auth/) | Bootstrap session từ cookie, storage an toàn, Web AJAX login kèm 2FA TOTP (`pyotp`) |
-| **`igchat_v2.bridge`** | [`src/igchat_v2/bridge/`](src/igchat_v2/bridge/) | Quản lý tiến trình Go Bridge qua line JSON-RPC, generation-fencing, ReconnectPolicy exponential backoff |
-| **`igchat_v2.direct`** | [`src/igchat_v2/direct/`](src/igchat_v2/direct/) | Direct listener, gửi/sửa/thu hồi tin, reaction, quản lý inbox/nhóm, Notes 24h, rupload media |
-| **`igchat_v2.social`** | [`src/igchat_v2/social/`](src/igchat_v2/social/) | Profile, cập nhật bio, quan hệ bạn bè (follow/block), tương tác bài viết (like/save/comment), tìm kiếm |
-| **`igchat_v2.bot`** | [`src/igchat_v2/bot/`](src/igchat_v2/bot/) | Khung bot hoàn chỉnh, router lệnh, bộ lọc chống spam, rate limiter theo user, xử lý tín hiệu OS |
+| **`igchat.core`** | [`igchat/core/`](igchat/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, bảo mật file, redaction |
+| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Bootstrap session từ cookie, storage an toàn, Web AJAX login kèm 2FA TOTP (`pyotp`) |
+| **`igchat.bridge`** | [`igchat/bridge/`](igchat/bridge/) | Quản lý tiến trình Go Bridge qua line JSON-RPC, generation-fencing, ReconnectPolicy exponential backoff |
+| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, gửi/sửa/thu hồi tin, reaction, quản lý inbox/nhóm, Notes 24h, rupload media |
+| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, cập nhật bio, quan hệ bạn bè (follow/block), tương tác bài viết (like/save/comment), tìm kiếm |
+| **`igchat.bot`** | [`igchat/bot/`](igchat/bot/) | Khung bot hoàn chỉnh, router lệnh, bộ lọc chống spam, rate limiter theo user, xử lý tín hiệu OS |
 | **`bridge/`** | [`bridge/`](bridge/README.md) | Source code Go bridge dựa trên `instameow` biên dịch ra `build/igchat-bridge.exe` |
 
 ---
@@ -152,9 +152,9 @@ python scripts/smoke_bridge_rpc.py build/igchat-bridge.exe --expected-version 3.
 
 ```python
 import asyncio
-from igchat_v2.auth import bootstrap_session
-from igchat_v2.bridge import BridgeProcess, BridgeActions
-from igchat_v2.direct import send_text_message
+from igchat.auth import bootstrap_session
+from igchat.bridge import BridgeProcess, BridgeActions
+from igchat.direct import send_text_message
 
 
 async def main() -> None:
@@ -191,9 +191,9 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from igchat_v2.auth import bootstrap_session
-from igchat_v2.direct import DirectListener
-from igchat_v2.core.models import MessageEvent
+from igchat.auth import bootstrap_session
+from igchat.direct import DirectListener
+from igchat.core.models import MessageEvent
 
 
 async def handle_message(event: MessageEvent) -> None:
@@ -224,10 +224,10 @@ Dự án cung cấp sẵn khung bot hoàn chỉnh với đầy đủ các lệnh
 Sao chép file cấu hình mẫu:
 
 ```bash
-cp src/config.example.json src/config.json
+cp config.example.json config.json
 ```
 
-Chỉnh sửa nội dung `src/config.json`:
+Chỉnh sửa nội dung `config.json`:
 
 ```json
 {
@@ -277,7 +277,7 @@ black --check .
 ruff check .
 
 # 3. Kiểm tra kiểu dữ liệu tĩnh nghiêm ngặt
-mypy src/igchat_v2 src/main.py scripts tests
+mypy igchat src/main.py scripts tests
 
 # 4. Kiểm tra Go Bridge
 cd bridge && go test -v ./... && go vet ./... && cd ..

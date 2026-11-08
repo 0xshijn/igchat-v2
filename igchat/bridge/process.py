@@ -63,9 +63,11 @@ def expected_platform_asset_name() -> str:
 
 
 def _checkout_root() -> Path | None:
-    candidate = Path(__file__).resolve().parents[3]
-    if (candidate / "bridge" / "go.mod").is_file():
-        return candidate
+    for idx in (2, 3):
+        if idx < len(Path(__file__).resolve().parents):
+            candidate = Path(__file__).resolve().parents[idx]
+            if (candidate / "bridge" / "go.mod").is_file():
+                return candidate
     return None
 
 

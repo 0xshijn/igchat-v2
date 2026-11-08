@@ -1,4 +1,4 @@
-"""Unit tests for igchat_v2.bridge transport, reconnect policy and actions."""
+"""Unit tests for igchat.bridge transport, reconnect policy and actions."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from igchat_v2.bridge.actions import BridgeActions
-from igchat_v2.bridge.process import BridgeProcess, expected_platform_asset_name
-from igchat_v2.bridge.reconnect import (
+from igchat.bridge.actions import BridgeActions
+from igchat.bridge.process import BridgeProcess, expected_platform_asset_name
+from igchat.bridge.reconnect import (
     ConnectionStatus,
     ReconnectPolicy,
     classify_bridge_error,
 )
-from igchat_v2.core.errors import (
+from igchat.core.errors import (
     AuthenticationError,
     BridgeError,
     BridgeProtocolError,

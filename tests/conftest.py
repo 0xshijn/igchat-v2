@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
-from igchat_v2.core.models import InstagramSession
+from igchat.core.models import InstagramSession
 
 
 @pytest.fixture

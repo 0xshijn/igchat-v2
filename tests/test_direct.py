@@ -1,26 +1,26 @@
-"""Unit tests for igchat_v2.direct features and DirectListener."""
+"""Unit tests for igchat.direct features and DirectListener."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from igchat_v2.core.models import InstagramSession
-from igchat_v2.direct.listener import DirectListener
-from igchat_v2.direct.media import upload_photo_rupload
-from igchat_v2.direct.messages import (
+from igchat.core.models import InstagramSession
+from igchat.direct.listener import DirectListener
+from igchat.direct.media import upload_photo_rupload
+from igchat.direct.messages import (
     edit_text_message,
     react_to_message,
     send_text_message,
     unsend_text_message,
 )
-from igchat_v2.direct.notes import (
+from igchat.direct.notes import (
     create_note,
     delete_note,
     fetch_notes,
     search_note_music,
 )
-from igchat_v2.direct.threads import (
+from igchat.direct.threads import (
     accept_message_request,
     demote_admin,
     fetch_inbox_threads,

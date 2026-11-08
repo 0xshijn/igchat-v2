@@ -43,6 +43,7 @@ logs/
 *.sqlite3
 *.db
 *.db-journal
+config.json
 src/config.json
 src/.session_cache.json
 .session_cache.json

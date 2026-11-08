@@ -1,4 +1,4 @@
-"""Unit tests for igchat_v2.core modules."""
+"""Unit tests for igchat.core modules."""
 
 from __future__ import annotations
 
@@ -7,32 +7,32 @@ from pathlib import Path
 
 import pytest
 
-from igchat_v2.core.console import configure_utf8_console, safe_print
-from igchat_v2.core.errors import (
+from igchat.core.console import configure_utf8_console, safe_print
+from igchat.core.errors import (
     SecurityViolationError,
     SessionCookieError,
 )
-from igchat_v2.core.http import (
+from igchat.core.http import (
     validate_public_http_url,
     validate_timeout,
 )
-from igchat_v2.core.models import (
+from igchat.core.models import (
     InstagramSession,
     format_cookie_header,
     normalize_session,
     parse_cookie_header,
 )
-from igchat_v2.core.permissions import (
+from igchat.core.permissions import (
     create_private_json_file,
     require_private_file,
     set_private_file_permissions,
 )
-from igchat_v2.core.redact import (
+from igchat.core.redact import (
     redact_sensitive_data,
     redact_sensitive_text,
     sanitize_log_message,
 )
-from igchat_v2.core.utils import (
+from igchat.core.utils import (
     build_graphql_form,
     build_ig_headers,
     compute_jazoest,
