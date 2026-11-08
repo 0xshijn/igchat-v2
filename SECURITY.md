@@ -52,3 +52,4 @@ Hãy báo cáo thông qua một trong hai kênh bảo mật bảo mật dưới 
 ### 4. Cách ly tiến trình Go Bridge (IPC Isolation)
 - Giao tiếp giữa Python Async Client và Go Bridge Companion diễn ra hoàn toàn qua anonymous OS pipes (`stdin`/`stdout`) trên cùng một host, không mở bất kỳ TCP port lắng nghe công khai nào trên mạng.
 - Cơ chế generation-fencing đảm bảo các gói tin từ phiên kết nối cũ bị loại bỏ ngay lập tức, ngăn ngừa race conditions hoặc chèn dữ liệu không hợp lệ.
+

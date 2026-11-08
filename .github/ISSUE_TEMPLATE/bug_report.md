@@ -30,3 +30,4 @@ Dán log hoặc stacktrace lỗi vào đây (lưu ý che giấu cookie/sessionid
 
 ### Thông tin bổ sung
 Bất kỳ ngữ cảnh hoặc thông tin nào khác về sự cố.
+

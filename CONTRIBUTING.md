@@ -93,3 +93,4 @@ Chúng tôi sử dụng chuẩn [Conventional Commits](https://www.conventionalc
 3. **Chạy toàn bộ Quality Gate** ở trên để đảm bảo không phát sinh lỗi hoặc cảnh báo kiểu.
 4. **Cam kết không commit thông tin nhạy cảm** (`config.json`, `.session_cache.json`, cookie cá nhân).
 5. **Tạo Pull Request** trên GitHub, mô tả rõ vấn đề và cách giải quyết theo template có sẵn.
+

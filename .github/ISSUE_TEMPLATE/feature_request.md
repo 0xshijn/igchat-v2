@@ -17,3 +17,4 @@ Bất kỳ giải pháp thay thế nào bạn đã thử qua hoặc cân nhắc.
 
 ### Bối cảnh / Tài liệu liên quan
 Ảnh chụp màn hình, tài liệu endpoint GraphQL / REST hoặc link thảo luận nếu có.
+

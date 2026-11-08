@@ -20,11 +20,13 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -45,7 +47,7 @@ jobs:
         run: black --check .
 
       - name: Static Type Checking (mypy)
-        run: mypy igchat main.py scripts tests
+        run: mypy igchat main.py scripts examples tests
 
       - name: Run Pytest Suite
         run: pytest tests/ -v
@@ -64,8 +66,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Go 1.23
         uses: actions/setup-go@v5
@@ -76,13 +76,12 @@ jobs:
       - name: Go Vet & Test
         working-directory: bridge
         run: |
-          go vet ./...
-          go test -v ./...
+          go vet . ./bridge
+          go test -v . ./bridge
 
       - name: Build Go Bridge
         working-directory: bridge
         run: |
-          mkdir -p ../build
           go build -trimpath -ldflags="-s -w -X main.bridgeVersion=3.0.0" -o ../build/igchat-bridge .
 
   package-check:
@@ -91,8 +90,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5

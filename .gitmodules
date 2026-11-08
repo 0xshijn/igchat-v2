@@ -1,3 +1,0 @@
-[submodule "bridge/meta"]
-	path = bridge/meta
-	url = https://github.com/mautrix/meta.git
