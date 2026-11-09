@@ -48,6 +48,8 @@ src/config.json
 src/.session_cache.json
 .session_cache.json
 src/test.py
+scripts/check_*.py
+scripts/test_*.py
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/

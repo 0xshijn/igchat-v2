@@ -11,7 +11,7 @@ from ..core.http import DEFAULT_TIMEOUT_SECONDS, post_graphql_async
 from ..core.models import InstagramSession, SendResult, normalize_session
 from ..core.utils import IG_BASE_URL, generate_offline_threading_id
 
-DOC_ID_SEND_TEXT = "26939990792348244"
+DOC_ID_SEND_TEXT = "26911679871773184"
 DOC_ID_EDIT_MESSAGE = "32480262318254796"
 DOC_ID_UNSEND_MESSAGE = "26948700068153789"
 DOC_ID_SEND_REACTION = "24374451552236906"
@@ -35,21 +35,23 @@ async def send_text_message(
         raise ValueError("Nội dung text không được rỗng.")
 
     variables: dict[str, Any] = {
-        "input": {
-            "thread_id": clean_thread,
-            "text": text,
-            "client_context": generate_offline_threading_id(),
-            "send_attribution": "direct_thread",
-        }
+        "offline_threading_id": generate_offline_threading_id(),
+        "text": {"sensitive_string_value": text},
+        "send_attribution": "direct_thread",
     }
+    if clean_thread.isdigit() and len(clean_thread) > 15:
+        variables["ig_thread_igid"] = clean_thread
+    else:
+        variables["recipient_igids"] = [clean_thread]
+
     if reply_to_id:
-        variables["input"]["replied_to_item_id"] = str(reply_to_id).strip()
+        variables["replied_to_item_id"] = str(reply_to_id).strip()
 
     payload = await post_graphql_async(
         sess,
         doc_id=DOC_ID_SEND_TEXT,
         variables=variables,
-        friendly_name="IGDSendTextMessageMutation",
+        friendly_name="IGDirectTextSendMutation",
         referer=f"{IG_BASE_URL}/direct/t/{clean_thread}/",
         client=client,
         timeout=timeout,

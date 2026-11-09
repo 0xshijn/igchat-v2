@@ -52,3 +52,4 @@ async def test_client_event_dispatch():
     # Event not matching
     await client.dispatch_event({"data": {"text": "/other"}})
     assert len(received) == 1
+

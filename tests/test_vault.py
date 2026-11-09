@@ -37,3 +37,4 @@ def test_vault_wrong_passphrase():
 
     with pytest.raises(AuthenticationError):
         load_vault_session(vault_json, "wrong_passphrase_456")
+
