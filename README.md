@@ -7,11 +7,11 @@
 <br />
 
 <p>
+  <a href="https://pypi.org/project/igchat-v2/"><img src="https://img.shields.io/pypi/v/igchat-v2?style=for-the-badge&logo=pypi&logoColor=white&color=38bdf8" alt="PyPI Version" /></a>
+  <a href="https://pypi.org/project/igchat-v2/"><img src="https://img.shields.io/pypi/dm/igchat-v2?style=for-the-badge&color=22c55e" alt="Downloads" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&labelColor=161928&logo=python&logoColor=white" alt="Python 3.10+" /></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go%20Bridge-1.23%2B-0891B2?style=for-the-badge&labelColor=161928&logo=go&logoColor=white" alt="Go 1.23+" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-7C3AED?style=for-the-badge&labelColor=161928" alt="Apache-2.0 License" /></a>
-  <a href="https://github.com/0xshijn"><img src="https://img.shields.io/badge/Author-0xshijn-1F2437?style=for-the-badge&labelColor=161928&logo=github&logoColor=white" alt="Author 0xshijn" /></a>
-  <a href="https://t.me/ShiinNoHacker"><img src="https://img.shields.io/badge/Telegram-%40ShiinNoHacker-1F2437?style=for-the-badge&labelColor=161928&logo=telegram&logoColor=06B6D4" alt="Telegram" /></a>
 </p>
 
 <p>
@@ -22,7 +22,11 @@
   <img src="https://img.shields.io/badge/Version-v3.1.0-f59e0b?style=flat-square" alt="Version 3.1.0" />
 </p>
 
-[🇬🇧 English](README_EN.md) · [💡 Ví dụ mẫu](examples/) · [🛡️ Bảo mật](SECURITY.md) · [🤝 Đóng góp](CONTRIBUTING.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Báo lỗi](https://github.com/0xshijn/igchat-v2/issues)
+```bash
+pip install igchat-v2
+```
+
+[🇬🇧 English](README_EN.md) · [📦 PyPI Package](https://pypi.org/project/igchat-v2/) · [💡 Ví dụ mẫu](examples/) · [🛡️ Bảo mật](SECURITY.md) · [🤝 Đóng góp](CONTRIBUTING.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Báo lỗi](https://github.com/0xshijn/igchat-v2/issues)
 
 </div>
 
@@ -35,10 +39,13 @@
 
 ## 🎯 Giới thiệu tổng quan
 
-**IGChat-v2 (v3.0.0)** được thiết kế và phát triển bởi **Phước Toàn (Shiin / [`0xshijn`](https://github.com/0xshijn))** như một giải pháp toàn diện, độc lập và chuẩn xác để tự động hóa **Instagram Direct** và các tính năng tương tác mạng xã hội Instagram.
+**IGChat-v2 (v3.1.0)** được thiết kế và phát triển bởi **Phước Toàn (Shiin / [`0xshijn`](https://github.com/0xshijn))** như một giải pháp toàn diện, độc lập và chuẩn xác để tự động hóa **Instagram Direct** và các tính năng tương tác mạng xã hội Instagram.
 
-**v3.0.0** mang đến nền tảng hiện đại, tối ưu và chuẩn xác dành riêng cho Instagram:
-- ✅ **100% Pure Instagram**: Sử dụng chuẩn Instagram Direct DGW WebSocket, Slide GraphQL, và Polaris Web REST API.
+**v3.1.0** mang đến nền tảng hiện đại, tối ưu và chuẩn xác dành riêng cho Instagram:
+- ✅ **Cài đặt 1 dòng lệnh**: Đã chính thức có mặt trên PyPI (`pip install igchat-v2`).
+- ✅ **100% Pure Instagram Protocol**: Sử dụng chuẩn Instagram Direct DGW WebSocket, Slide GraphQL, và Polaris Web REST API.
+- ✅ **🥷 Zero-Presence Ghost Mode**: Đọc toàn bộ tin nhắn mà người gửi **tuyệt đối không bao giờ nhận được thông báo "Đã xem" (Seen)**.
+- ✅ **🕵️ Headless Anti-Unsend & Forensic Archiver**: Tự động hứng và lưu tin nhắn/ảnh/voice trước khi bị đối phương thu hồi, xuất file HTML Dark Mode độc lập.
 - ✅ **Kiến trúc phân tầng chuyên nghiệp**: Python Async Client (`igchat`) kết hợp Go Bridge companion (`instameow`) giao tiếp qua JSON-RPC 2.0 dòng.
 
 ---
@@ -52,8 +59,18 @@
       <p>Toàn bộ I/O xây dựng trên <code>asyncio</code> và <code>httpx.AsyncClient</code> với connection pooling tối ưu, timeout hữu hạn, và kiểm soát ngoại lệ chuẩn xác.</p>
     </td>
     <td width="50%" valign="top">
-      <h4>🌉 Go Bridge thời gian thực (v3.0.0)</h4>
+      <h4>🌉 Go Bridge thời gian thực (v3.1.0)</h4>
       <p>Tiến trình Go (<code>build/igchat-bridge.exe</code>) tích hợp <code>instameow</code> xử lý WebSocket DGW và MQTT bypass với cơ chế generation-fenced và tự động phục hồi.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h4>🥷 Ghost Mode &amp; Humanizer</h4>
+      <p>Tàng hình 100% không để lại dấu vết: triệt tiêu read receipts (không bao giờ hiện "Đã xem"), ẩn chỉ báo online <code>X-IG-Presence: 0</code>, và mô phỏng nhịp gõ phím phân phối chuẩn Gaussian.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h4>🕵️ Anti-Unsend &amp; Forensic Vault</h4>
+      <p>Bộ nhớ đệm thời gian thực bắt trọn tin nhắn trước khi bị xoá. Hỗ trợ trích xuất ảnh "Xem 1 lần" từ CDN gốc và xuất báo cáo trò chuyện offline ra file HTML Dark Mode hoặc JSON.</p>
     </td>
   </tr>
   <tr>
@@ -62,8 +79,8 @@
       <p>Kiểm tra URL nghiêm ngặt chặn tấn công SSRF vào mạng nội bộ/cloud metadata khi tải media; che giấu bí mật tự động trong log stderr; khóa quyền file lưu trữ (<code>0600</code> / Windows ACL).</p>
     </td>
     <td width="50%" valign="top">
-      <h4>🤖 Khung Bot tích hợp sẵn</h4>
-      <p>Lớp <code>InstagramBot</code> sẵn sàng vận hành với bộ đệm LRU chống lặp tin nhắn, rate-limiting độc lập theo từng user, router lệnh async và hỗ trợ quyền Admin an toàn.</p>
+      <h4>🤖 Khung Bot &amp; Composable Filters</h4>
+      <p>Cú pháp decorator <code>@client.on(filters.command("...") &amp; filters.private)</code> linh hoạt với toán tử logic <code>&amp;</code>, <code>|</code>, <code>~</code>. Tích hợp sẵn bộ đệm chống trùng tin và per-user rate limiting.</p>
     </td>
   </tr>
 </table>
@@ -74,9 +91,12 @@
 
 ```mermaid
 flowchart LR
-    App["Ứng dụng Python / Bot"] --> BotMod["igchat.bot"]
-    BotMod --> DirectMod["igchat.direct"]
-    BotMod --> SocialMod["igchat.social"]
+    App["Ứng dụng Python / Bot"] --> ClientMod["igchat.client (IGClient)"]
+    ClientMod --> FilterMod["igchat.filters"]
+    ClientMod --> DirectMod["igchat.direct"]
+    ClientMod --> SocialMod["igchat.social"]
+    ClientMod --> StealthMod["igchat.stealth (Ghost)"]
+    ClientMod --> ExportMod["igchat.export (Forensic)"]
 
     DirectMod --> BridgeMod["igchat.bridge"]
     DirectMod --> CoreMod["igchat.core"]
@@ -89,29 +109,28 @@ flowchart LR
 
 | Package / Module | Đường dẫn | Vai trò |
 |---|---|---|
-| **`igchat.client`** | [`igchat/client.py`](igchat/client.py) | **High-Level Fluent SDK (`IGClient`)**: Context manager, event decorators `@client.on(...)`, pagination tự động |
-| **`igchat.filters`** | [`igchat/filters.py`](igchat/filters.py) | **Bộ lọc tin nhắn nâng cao**: Hỗ trợ toán tử logic `&`, `\|`, `~`, `^` (text, command, regex, media, group, sender...) |
-| **`igchat.stealth`** | [`igchat/stealth.py`](igchat/stealth.py) | **Ghost Mode & Humanizer**: Ẩn danh hoàn toàn (chặn presence/đã xem), mô phỏng tốc độ gõ phím phân phối Gaussian |
-| **`igchat.export`** | [`igchat/export.py`](igchat/export.py) | **Sao lưu hội thoại forensic**: Xuất dữ liệu Direct ra JSON, Markdown hoặc trang HTML Dark Mode giao diện Instagram |
+| **`igchat.client`** | [`igchat/client.py`](igchat/client.py) | **High-Level Fluent SDK (`IGClient`)**: Context manager, event decorators `@client.on(...)`, auto pagination |
+| **`igchat.filters`** | [`igchat/filters.py`](igchat/filters.py) | **Bộ lọc tin nhắn tổ hợp**: Hỗ trợ toán tử logic `&`, `\|`, `~`, `^` (text, command, regex, media, group, sender...) |
+| **`igchat.stealth`** | [`igchat/stealth.py`](igchat/stealth.py) | **Ghost Mode & Humanizer**: Ẩn danh hoàn toàn (chặn presence / không hiện "Đã xem"), mô phỏng tốc độ gõ phím Gaussian |
+| **`igchat.export`** | [`igchat/export.py`](igchat/export.py) | **Sao lưu hội thoại forensic**: Xuất dữ liệu Direct ra JSON, Markdown hoặc trang HTML Dark Mode giao diện chuẩn Instagram |
 | **`igchat.core`** | [`igchat/core/`](igchat/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, bảo mật file, redaction |
 | **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Bootstrap session, **Encrypted Vault (PBKDF2 + authenticated stream cipher)**, Web AJAX login kèm 2FA TOTP |
 | **`igchat.bridge`** | [`igchat/bridge/`](igchat/bridge/) | Quản lý tiến trình Go Bridge qua line JSON-RPC, generation-fencing, ReconnectPolicy exponential backoff |
 | **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, gửi/sửa/thu hồi tin, reaction, **Themes & Direct Polls**, **Voice waveform (64 peaks)** |
 | **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, bio, quan hệ bạn bè, **Phân tích Unfollowers & Close Friends (`analytics.py`)**, tương tác bài viết |
 | **`igchat.bot`** | [`igchat/bot/`](igchat/bot/) | Khung bot hoàn chỉnh, router lệnh, bộ lọc chống spam, rate limiter theo user, xử lý tín hiệu OS |
-| **`bridge/`** | [`bridge/`](bridge/README.md) | Source code Go bridge dựa trên `instameow` biên dịch ra `build/igchat-bridge.exe` |
 
 ---
 
-## 🛠️ Cài đặt & Chuẩn bị môi trường
+## 🛠️ Cài đặt & Bắt đầu nhanh
 
-### Yêu cầu hệ thống
+### Cách 1: Cài đặt từ PyPI (Khuyên dùng)
 
-- **Python 3.10+** (khuyên dùng Python 3.11 hoặc 3.12/3.13)
-- **Go 1.23+** (dùng để biên dịch bridge Go)
-- **Git** (để clone submodule `bridge/meta`)
+```bash
+pip install igchat-v2
+```
 
-### 1. Clone repository & cài đặt Python package
+### Cách 2: Cài đặt từ mã nguồn (Dành cho Developer)
 
 ```bash
 git clone https://github.com/0xshijn/igchat-v2.git
@@ -119,38 +138,45 @@ cd igchat-v2
 
 # Khởi tạo môi trường ảo Python
 python -m venv .venv
+.venv\Scripts\Activate.ps1 # Hoặc: source .venv/bin/activate
 
-# Kích hoạt môi trường ảo:
-# Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# Linux / macOS:
-source .venv/bin/activate
+# Cài đặt chế độ editable
+pip install -e ".[dev]"
 
-# Nâng cấp pip và cài đặt phụ thuộc
-python -m pip install --upgrade pip
-python -m pip install -e .
-```
-
-### 2. Biên dịch Go Bridge companion
-
-```bash
-cd bridge
-go test -v ./...
-go build -trimpath -ldflags="-s -w -X main.bridgeVersion=3.0.0" -o ../build/igchat-bridge.exe .
-cd ..
-```
-
-Kiểm tra binary bridge bằng script smoke test:
-
-```bash
-python scripts/smoke_bridge_rpc.py build/igchat-bridge.exe --expected-version 3.0.0
+# Chạy test suite
+pytest tests/
 ```
 
 ---
 
 ## 🚀 Hướng dẫn sử dụng nhanh
 
-### 1. Gửi tin nhắn Direct cơ bản
+### 1. Fluent SDK & Lắng nghe tin nhắn kèm Ghost Mode
+
+```python
+import asyncio
+from igchat import IGClient, filters
+
+
+async def main() -> None:
+    # Khởi tạo client từ cookie với chế độ Ghost Mode (đọc tin nhắn KHÔNG gửi "Đã xem")
+    async with await IGClient.from_cookie("sessionid=...; ds_user_id=...; csrftoken=...;", stealth=True) as client:
+
+        # Lắng nghe lệnh /ping trong chat riêng
+        @client.on(filters.command("ping") & filters.private)
+        async def on_ping(event: dict) -> None:
+            thread_id = event["data"]["threadId"]
+            await client.send_message(thread_id, "pong! 🥷 (Tin nhắn này được đọc ẩn danh)")
+
+        print("Bot đang chạy với chế độ Ghost Mode...")
+        await client.run_forever()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 2. Gửi tin nhắn Direct cơ bản
 
 ```python
 import asyncio
@@ -159,83 +185,39 @@ from igchat.direct import send_text_message
 
 
 async def main() -> None:
-    # 1. Khởi tạo session từ cookie Instagram
-    cookie_str = "sessionid=YOUR_SESSION_ID; ds_user_id=YOUR_USER_ID; csrftoken=YOUR_CSRF_TOKEN;"
-    session = await bootstrap_session(cookie_str)
-    print(f"Logged in as: @{session.username} ({session.user_id})")
-
-    # 2. Gửi tin nhắn Direct qua Polaris Web GraphQL
+    session = await bootstrap_session("sessionid=...; ds_user_id=...; csrftoken=...;")
+    
+    # Gửi tin nhắn qua Polaris GraphQL chuẩn
     result = await send_text_message(
         session,
-        thread_id="340282366841710300949128134123456789012",
-        text="Hello from igchat v3.0.0!",
+        thread_id="17845618319961946",
+        text="Xin chào từ igchat-v2 v3.1.0!",
     )
-    print(f"Message sent! ID: {result.get('message_id')}")
+    print("Trạng thái:", result.get("status"))
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### 2. Lắng nghe tin nhắn theo thời gian thực (DirectListener)
+### 3. Xuất toàn bộ cuộc trò chuyện ra HTML Dark Mode
 
 ```python
 import asyncio
-from typing import Any
 from igchat.auth import bootstrap_session
-from igchat.direct import DirectListener
-
-
-async def handle_message(event: dict[str, Any]) -> None:
-    data = event.get("data", {})
-    thread_id = data.get("threadId") or data.get("thread_id")
-    sender_id = data.get("senderId") or data.get("sender_id")
-    text = data.get("text", "")
-    print(f"[{thread_id}] @{sender_id}: {text}")
+from igchat.export import export_thread_to_html
 
 
 async def main() -> None:
     session = await bootstrap_session("sessionid=...; ds_user_id=...; csrftoken=...;")
-    listener = DirectListener(session=session)
-    listener.on_message(handle_message)
-
-    print("Đang lắng nghe tin nhắn Instagram Direct...")
-    await listener.start()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### 3. Sử dụng Fluent SDK hiện đại (`IGClient`)
-
-```python
-import asyncio
-from igchat import IGClient, filters
-from igchat.stealth import GhostMode, Humanizer
-
-
-async def main() -> None:
-    # Khởi tạo client hiện đại với Ghost Mode (chống phát hiện / ẩn trạng thái online)
-    stealth = GhostMode(stealth_read_receipts=True, suppress_presence=True)
-
-    async with IGClient(cookie="sessionid=...; ds_user_id=...;", stealth=stealth) as client:
-        print(f"Connected as @{client.username} (ID: {client.user_id})")
-
-        # 1. Gửi tin nhắn kèm độ trễ gõ phím người thật
-        humanizer = Humanizer(cpm=320.0)
-        await humanizer.simulate_typing(client.session, "340282366841710300949128134123456789012", 20)
-        await client.send_text("340282366841710300949128134123456789012", "Hello via Fluent IGClient!")
-
-        # 2. Xử lý sự kiện với bộ lọc kết hợp (bitwise operators)
-        @client.on(filters.command("hello") & filters.private)
-        async def on_hello(event: dict) -> None:
-            thread_id = event["data"]["threadId"]
-            await client.send_text(thread_id, "Hello! I am running on pure Python async IGClient.")
-
-        # 3. Phân tích người không follow lại (Non-followers)
-        analytics = await client.analyze_followers()
-        print(f"Ai không follow lại tôi: {analytics.not_following_back}")
+    
+    # Tải và xuất toàn bộ lịch sử trò chuyện ra file HTML tự chứa
+    html_file = await export_thread_to_html(
+        session,
+        thread_id="17845618319961946",
+        output_path="chat_export.html",
+    )
+    print(f"Đã xuất báo cáo trò chuyện: {html_file}")
 
 
 if __name__ == "__main__":
@@ -244,89 +226,24 @@ if __name__ == "__main__":
 
 ---
 
-## 🤖 Khởi chạy Bot Mẫu (`main.py`)
+## 🧪 Kiểm thử chất lượng (Test Suite)
 
-Dự án cung cấp sẵn khung bot hoàn chỉnh với đầy đủ các lệnh tiện ích và quản trị.
-
-### 1. Cấu hình bot
-
-Sao chép file cấu hình mẫu:
+Dự án bao gồm **50/50 unit tests** toàn diện với tỷ lệ pass 100%:
 
 ```bash
-cp config.example.json config.json
-```
-
-Chỉnh sửa nội dung `config.json`:
-
-```json
-{
-  "botName": "igchat-v2 bot",
-  "prefix": "/",
-  "cookies": "sessionid=...; ds_user_id=...; csrftoken=...;",
-  "admins": ["1000xxxxxxxxxx"],
-  "log_message_content": false,
-  "debug_errors": false
-}
-```
-
-### 2. Chạy bot
-
-```bash
-python main.py
-```
-
-<details>
-<summary>📋 <b>Danh sách 54 lệnh tích hợp sẵn trong bot (Bấm để xem chi tiết)</b></summary>
-
-<br />
-
-| Nhóm | Lệnh | Mô tả |
-|---|---|---|
-| **Hệ thống** | `/hi`, `/ping`, `/help`, `/id`, `/notif` | Kiểm tra kết nối, độ trễ, danh sách lệnh, thread/user ID, thông báo gần đây |
-| **Tin nhắn** | `/echo`, `/react`, `/edit`, `/unsend`, `/pin`, `/unpin`, `/forward`, `/more` | Lặp lại nội dung, thả cảm xúc, sửa/thu hồi tin E2EE, ghim/bỏ ghim, chuyển tiếp |
-| **Bảo vệ** | `/antiunsend [on\|off]`, `/antiedit [on\|off]` | Tự động phát hiện và cảnh báo khi có tin nhắn bị thu hồi hoặc chỉnh sửa |
-| **Quản trị Nhóm** | `/rename`, `/groupavatar`, `/tagall`, `/mute`, `/pinthread`, `/add`, `/kick`, `/promote`, `/demote`, `/leave` | Đổi tên nhóm, đổi avatar, tag tất cả, bật/tắt thông báo, thêm/xóa thành viên, thăng/hạ admin |
-| **Hộp thư** | `/inbox`, `/thread [số]`, `/requests`, `/accept <id>`, `/deletethread` | Xem hộp thư gần đây, lịch sử chat, duyệt tin nhắn chờ, xóa cuộc trò chuyện |
-| **Instagram Notes** | `/note [text\|clear\|list]`, `/delnote`, `/notes`, `/notemusic <bài>`, `/music <q>` | Đăng/xóa Note 24h, đăng Note kèm bài hát, tìm kiếm âm nhạc |
-| **Mạng xã hội** | `/info`, `/profile <user>`, `/bio <text>`, `/follow`, `/unfollow`, `/block`, `/unblock`, `/search <q>` | Xem profile, đổi bio bot, theo dõi/hủy theo dõi, chặn/bỏ chặn, tìm kiếm người dùng |
-| **Media & Tải về** | `/image <url>`, `/voice <url>`, `/media`, `/dl <url>`, `/autodl [on\|off]`, `/post`, `/upstory` | Gửi ảnh/voice từ URL, bóc tách link tải Reel/Post, tự động tải link IG, đăng bài lên Feed/Story |
-| **Tương tác Bài viết** | `/like <url>`, `/unlike`, `/comment <url> <text>`, `/save`, `/unsave` | Thả tim/bỏ tim bài viết, gửi bình luận, lưu/bỏ lưu bài viết Instagram |
-
-</details>
-
----
-
-## 🧪 Kiểm thử chất lượng mã nguồn (Quality Gate)
-
-Dự án đạt 100% tiêu chuẩn chất lượng nghiêm ngặt trước khi đóng gói:
-
-```bash
-# 1. Chạy toàn bộ test suite Python (50 unit tests & 54 command runner tests)
-pytest tests/ -v
-python tests/test_all_commands.py
-
-# 2. Kiểm tra định dạng mã nguồn
-black --check .
-ruff check .
-
-# 3. Kiểm tra kiểu dữ liệu tĩnh nghiêm ngặt
-mypy igchat main.py scripts examples tests
-
-# 4. Kiểm tra Go Bridge
-cd bridge && go test -v . ./bridge && go vet . ./bridge && cd ..
+pytest tests/
+# ============================= 50 passed in 1.98s =============================
 ```
 
 ---
 
-## 📜 Giấy phép & Tác giả
+## 🤝 Đóng góp & Phát triển
 
-Dự án được phân phối dưới giấy phép [**Apache License 2.0**](LICENSE).  
-Thành phần Go bridge sử dụng `instameow` thuộc [mautrix-meta](https://github.com/mautrix/meta) theo giấy phép GPL-3.0.
+Mọi đóng góp, báo lỗi và ý tưởng phát triển đều được hoan nghênh! Vui lòng đọc kỹ [`CONTRIBUTING.md`](CONTRIBUTING.md) và tuân thủ [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
-<div align="center">
+---
 
-Phát triển & duy trì bởi **[Phước Toàn (Shiin / 0xshijn)](https://github.com/0xshijn)**
-<br />
-[Portfolio](https://0xshijn.is-a.dev) · [Telegram](https://t.me/ShiinNoHacker) · [Instagram](https://instagram.com/_phwctoazn) · [GitHub](https://github.com/0xshijn)
+## 📜 Bản quyền & Giấy phép
 
-</div>
+Phát triển bởi **[Phước Toàn (Shiin / 0xshijn)](https://github.com/0xshijn)**.  
+Dự án được phân phối dưới giấy phép **[Apache-2.0 License](LICENSE)**.
