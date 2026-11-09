@@ -1,7 +1,14 @@
-"""Instagram social APIs: profiles, friendships, posts/stories, search & inbox news."""
+"""Instagram social APIs: profiles, friendships, analytics, posts/stories & search."""
 
 from __future__ import annotations
 
+from .analytics import (
+    FollowerAnalytics,
+    analyze_relationships,
+    fetch_close_friends,
+    fetch_story_viewers,
+    update_close_friends,
+)
 from .friendships import (
     block_user,
     follow_user,
@@ -23,11 +30,15 @@ from .profile import change_bio, get_user_profile
 from .search import search_users
 
 __all__ = [
+    "FollowerAnalytics",
+    "analyze_relationships",
     "block_user",
     "change_bio",
     "comment_media",
     "delete_comment",
+    "fetch_close_friends",
     "fetch_notifications",
+    "fetch_story_viewers",
     "follow_user",
     "get_user_profile",
     "like_media",
@@ -39,4 +50,5 @@ __all__ = [
     "shortcode_to_media_id",
     "unblock_user",
     "unfollow_user",
+    "update_close_friends",
 ]

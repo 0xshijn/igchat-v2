@@ -4,6 +4,35 @@ Các thay đổi đáng chú ý của dự án `igchat-v2`, tuân theo định d
 
 ---
 
+## [3.1.0] - 2026-11-09
+
+### Added (Tính năng mới)
+
+- **Fluent High-Level Async SDK (`IGClient`):**
+  - Cung cấp async context manager tiện dụng (`async with IGClient(...) as client:`).
+  - Tích hợp cú pháp decorator sự kiện `@client.on(filters.command("...") & filters.private)`.
+  - Hỗ trợ phân trang con trỏ (async cursor pagination) duyệt toàn bộ lịch sử tin nhắn hoặc danh sách theo dõi.
+- **Composable Message Filters (`igchat.filters`):**
+  - Hệ thống lọc tin nhắn dạng biểu thức logic tổ hợp với các toán tử bitwise: `&` (AND), `|` (OR), `~` (NOT), `^` (XOR).
+  - Các bộ lọc sẵn có: `text`, `command`, `regex`, `media`, `photo`, `video`, `voice`, `story_reply`, `reaction`, `group`, `private`, `sender`, `thread`, `silent`.
+- **Ghost Mode & Humanizer (`igchat.stealth`):**
+  - `GhostMode`: Chế độ tàng hình chống phát hiện bot, tự động chặn gửi presence / online status (`X-IG-Presence: 0`) và xem tin nhắn ẩn danh (stealth read receipts).
+  - `Humanizer`: Mô phỏng hành vi người dùng thật với thời gian gõ phím phân phối chuẩn Gaussian (CPM có jitter) và thời gian đọc ngẫu nhiên trước khi phản hồi.
+- **Encrypted Session Vault (`igchat.auth.vault`):**
+  - Mã hóa session cookie bằng hàm dẫn xuất khóa PBKDF2-HMAC-SHA256 (200,000 vòng lặp) kết hợp authenticated XOR stream cipher và HMAC-SHA256 digest chống làm giả.
+- **Forensic Chat Archiver (`igchat.export`):**
+  - Hỗ trợ xuất dữ liệu hội thoại Direct thành các định dạng: JSON, Markdown và trang HTML tự chứa (standalone Dark Mode giao diện chuẩn Instagram Direct Web).
+- **Direct Voice Waveforms & Themes/Polls:**
+  - `igchat.direct.voice`: Bộ tạo 64 normalized amplitude peaks cho tin nhắn thoại giống giao diện Instagram Mobile.
+  - `igchat.direct.themes`: Thiết lập chủ đề màu hội thoại Direct (`set_thread_theme`), tạo và bỏ phiếu Direct Polls (`create_direct_poll`, `vote_direct_poll`).
+- **Social Analytics & Close Friends:**
+  - `igchat.social.analytics`: Phân tích quan hệ bạn bè tự động tính toán danh sách ai không follow lại (`not_following_back`) và người theo dõi trung thành (`fans`).
+  - Quản lý danh sách Bạn thân (Close Friends / Besties) và theo dõi danh sách người xem Story 24h.
+- **Test Suite mở rộng:**
+  - Nâng cấp test suite lên 50 unit tests đạt 100% pass rate, kiểm tra toàn diện tất cả các module mới.
+
+---
+
 ## [3.0.0] - 2026-11-08
 
 ### Added (Tính năng mới)

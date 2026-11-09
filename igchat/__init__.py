@@ -1,15 +1,18 @@
-"""igchat-v2 v3.0.0 — Async-first Instagram Direct & Polaris GraphQL library."""
+"""igchat-v2 v3.1.0 — Async-first Instagram Direct & Polaris GraphQL library."""
 
 from __future__ import annotations
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
+from . import filters
 from .auth import (
     EnvSessionStorage,
     FileSessionStorage,
     LoginResult,
     SessionStorage,
     bootstrap_session,
+    export_vault_session,
+    load_vault_session,
     login_with_credentials,
 )
 from .bot import InstagramBot, PerUserRateLimiter, main_blocking, run_bot
@@ -21,6 +24,7 @@ from .bridge import (
     ConnectionStatus,
     ReconnectPolicy,
 )
+from .client import IGClient
 from .core import (
     AuthenticationError,
     BridgeError,
@@ -37,8 +41,10 @@ from .core import (
     UserSummary,
 )
 from .direct import (
+    ChatTheme,
     DirectListener,
     accept_message_request,
+    create_direct_poll,
     create_note,
     delete_note,
     demote_admin,
@@ -46,22 +52,36 @@ from .direct import (
     fetch_inbox_threads,
     fetch_notes,
     fetch_thread_detail,
+    format_silent_message,
+    format_voice_note_metadata,
+    generate_waveform_peaks,
     mute_thread_rest,
     promote_admin,
     react_to_message,
     rename_thread,
     search_note_music,
     send_text_message,
+    set_thread_theme,
     unsend_text_message,
     upload_photo_rupload,
     upload_video_rupload,
+    vote_direct_poll,
+)
+from .export import (
+    export_thread_to_html,
+    export_thread_to_json,
+    export_thread_to_markdown,
 )
 from .social import (
+    FollowerAnalytics,
+    analyze_relationships,
     block_user,
     change_bio,
     comment_media,
     delete_comment,
+    fetch_close_friends,
     fetch_notifications,
+    fetch_story_viewers,
     follow_user,
     get_user_profile,
     like_media,
@@ -73,7 +93,9 @@ from .social import (
     shortcode_to_media_id,
     unblock_user,
     unfollow_user,
+    update_close_friends,
 )
+from .stealth import GhostMode, Humanizer
 
 __all__ = [
     "BRIDGE_PROTOCOL_VERSION",
@@ -83,12 +105,17 @@ __all__ = [
     "BridgeError",
     "BridgeProcess",
     "BridgeProtocolError",
+    "ChatTheme",
     "CheckpointRequiredError",
     "ConnectionStatus",
     "DirectListener",
     "EnvSessionStorage",
     "FileSessionStorage",
+    "FollowerAnalytics",
+    "GhostMode",
+    "Humanizer",
     "IGChatError",
+    "IGClient",
     "InstagramBot",
     "InstagramSession",
     "LoginResult",
@@ -104,22 +131,35 @@ __all__ = [
     "UserSummary",
     "__version__",
     "accept_message_request",
+    "analyze_relationships",
     "block_user",
     "bootstrap_session",
     "change_bio",
     "comment_media",
+    "create_direct_poll",
     "create_note",
     "delete_comment",
     "delete_note",
     "demote_admin",
     "edit_text_message",
+    "export_thread_to_html",
+    "export_thread_to_json",
+    "export_thread_to_markdown",
+    "export_vault_session",
+    "fetch_close_friends",
     "fetch_inbox_threads",
     "fetch_notes",
     "fetch_notifications",
+    "fetch_story_viewers",
     "fetch_thread_detail",
+    "filters",
     "follow_user",
+    "format_silent_message",
+    "format_voice_note_metadata",
+    "generate_waveform_peaks",
     "get_user_profile",
     "like_media",
+    "load_vault_session",
     "login_with_credentials",
     "main_blocking",
     "media_id_to_shortcode",
@@ -134,10 +174,13 @@ __all__ = [
     "search_note_music",
     "search_users",
     "send_text_message",
+    "set_thread_theme",
     "shortcode_to_media_id",
     "unblock_user",
     "unfollow_user",
     "unsend_text_message",
+    "update_close_friends",
     "upload_photo_rupload",
     "upload_video_rupload",
+    "vote_direct_poll",
 ]

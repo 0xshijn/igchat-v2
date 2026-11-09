@@ -19,7 +19,7 @@
   <a href="https://github.com/0xshijn/igchat-v2/network/members"><img src="https://img.shields.io/github/forks/0xshijn/igchat-v2?style=flat-square&logo=github&color=a855f7" alt="Forks" /></a>
   <a href="https://github.com/0xshijn/igchat-v2/issues"><img src="https://img.shields.io/github/issues/0xshijn/igchat-v2?style=flat-square&logo=github&color=22c55e" alt="Issues" /></a>
   <a href="https://github.com/0xshijn/igchat-v2/actions/workflows/ci.yml"><img src="https://github.com/0xshijn/igchat-v2/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
-  <img src="https://img.shields.io/badge/Version-v3.0.0-f59e0b?style=flat-square" alt="Version 3.0.0" />
+  <img src="https://img.shields.io/badge/Version-v3.1.0-f59e0b?style=flat-square" alt="Version 3.1.0" />
 </p>
 
 [🇬🇧 English](README_EN.md) · [💡 Ví dụ mẫu](examples/) · [🛡️ Bảo mật](SECURITY.md) · [🤝 Đóng góp](CONTRIBUTING.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Báo lỗi](https://github.com/0xshijn/igchat-v2/issues)
@@ -89,11 +89,15 @@ flowchart LR
 
 | Package / Module | Đường dẫn | Vai trò |
 |---|---|---|
+| **`igchat.client`** | [`igchat/client.py`](igchat/client.py) | **High-Level Fluent SDK (`IGClient`)**: Context manager, event decorators `@client.on(...)`, pagination tự động |
+| **`igchat.filters`** | [`igchat/filters.py`](igchat/filters.py) | **Bộ lọc tin nhắn nâng cao**: Hỗ trợ toán tử logic `&`, `\|`, `~`, `^` (text, command, regex, media, group, sender...) |
+| **`igchat.stealth`** | [`igchat/stealth.py`](igchat/stealth.py) | **Ghost Mode & Humanizer**: Ẩn danh hoàn toàn (chặn presence/đã xem), mô phỏng tốc độ gõ phím phân phối Gaussian |
+| **`igchat.export`** | [`igchat/export.py`](igchat/export.py) | **Sao lưu hội thoại forensic**: Xuất dữ liệu Direct ra JSON, Markdown hoặc trang HTML Dark Mode giao diện Instagram |
 | **`igchat.core`** | [`igchat/core/`](igchat/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, bảo mật file, redaction |
-| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Bootstrap session từ cookie, storage an toàn, Web AJAX login kèm 2FA TOTP (`pyotp`) |
+| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Bootstrap session, **Encrypted Vault (PBKDF2 + authenticated stream cipher)**, Web AJAX login kèm 2FA TOTP |
 | **`igchat.bridge`** | [`igchat/bridge/`](igchat/bridge/) | Quản lý tiến trình Go Bridge qua line JSON-RPC, generation-fencing, ReconnectPolicy exponential backoff |
-| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, gửi/sửa/thu hồi tin, reaction, quản lý inbox/nhóm, Notes 24h, rupload media |
-| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, cập nhật bio, quan hệ bạn bè (follow/block), tương tác bài viết (like/save/comment), tìm kiếm |
+| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, gửi/sửa/thu hồi tin, reaction, **Themes & Direct Polls**, **Voice waveform (64 peaks)** |
+| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, bio, quan hệ bạn bè, **Phân tích Unfollowers & Close Friends (`analytics.py`)**, tương tác bài viết |
 | **`igchat.bot`** | [`igchat/bot/`](igchat/bot/) | Khung bot hoàn chỉnh, router lệnh, bộ lọc chống spam, rate limiter theo user, xử lý tín hiệu OS |
 | **`bridge/`** | [`bridge/`](bridge/README.md) | Source code Go bridge dựa trên `instameow` biên dịch ra `build/igchat-bridge.exe` |
 
@@ -203,6 +207,41 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### 3. Sử dụng Fluent SDK hiện đại (`IGClient`)
+
+```python
+import asyncio
+from igchat import IGClient, filters
+from igchat.stealth import GhostMode, Humanizer
+
+
+async def main() -> None:
+    # Khởi tạo client hiện đại với Ghost Mode (chống phát hiện / ẩn trạng thái online)
+    stealth = GhostMode(stealth_read_receipts=True, suppress_presence=True)
+
+    async with IGClient(cookie="sessionid=...; ds_user_id=...;", stealth=stealth) as client:
+        print(f"Connected as @{client.username} (ID: {client.user_id})")
+
+        # 1. Gửi tin nhắn kèm độ trễ gõ phím người thật
+        humanizer = Humanizer(cpm=320.0)
+        await humanizer.simulate_typing(client.session, "340282366841710300949128134123456789012", 20)
+        await client.send_text("340282366841710300949128134123456789012", "Hello via Fluent IGClient!")
+
+        # 2. Xử lý sự kiện với bộ lọc kết hợp (bitwise operators)
+        @client.on(filters.command("hello") & filters.private)
+        async def on_hello(event: dict) -> None:
+            thread_id = event["data"]["threadId"]
+            await client.send_text(thread_id, "Hello! I am running on pure Python async IGClient.")
+
+        # 3. Phân tích người không follow lại (Non-followers)
+        analytics = await client.analyze_followers()
+        print(f"Ai không follow lại tôi: {analytics.not_following_back}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
 
 ## 🤖 Khởi chạy Bot Mẫu (`main.py`)
@@ -262,7 +301,7 @@ python main.py
 Dự án đạt 100% tiêu chuẩn chất lượng nghiêm ngặt trước khi đóng gói:
 
 ```bash
-# 1. Chạy toàn bộ test suite Python (34 unit tests & 54 command runner tests)
+# 1. Chạy toàn bộ test suite Python (50 unit tests & 54 command runner tests)
 pytest tests/ -v
 python tests/test_all_commands.py
 

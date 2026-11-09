@@ -19,7 +19,7 @@
   <a href="https://github.com/0xshijn/igchat-v2/network/members"><img src="https://img.shields.io/github/forks/0xshijn/igchat-v2?style=flat-square&logo=github&color=a855f7" alt="Forks" /></a>
   <a href="https://github.com/0xshijn/igchat-v2/issues"><img src="https://img.shields.io/github/issues/0xshijn/igchat-v2?style=flat-square&logo=github&color=22c55e" alt="Issues" /></a>
   <a href="https://github.com/0xshijn/igchat-v2/actions/workflows/ci.yml"><img src="https://github.com/0xshijn/igchat-v2/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
-  <img src="https://img.shields.io/badge/Version-v3.0.0-f59e0b?style=flat-square" alt="Version 3.0.0" />
+  <img src="https://img.shields.io/badge/Version-v3.1.0-f59e0b?style=flat-square" alt="Version 3.1.0" />
 </p>
 
 [🇻🇳 Tiếng Việt](README.md) · [💡 Examples](examples/) · [🛡️ Security](SECURITY.md) · [🤝 Contributing](CONTRIBUTING.md) · [🌉 Go Bridge](bridge/README.md) · [🐛 Bug Reports](https://github.com/0xshijn/igchat-v2/issues)
@@ -89,11 +89,15 @@ flowchart LR
 
 | Package / Module | Path | Description |
 |---|---|---|
+| **`igchat.client`** | [`igchat/client.py`](igchat/client.py) | **High-Level Fluent SDK (`IGClient`)**: Context manager, event decorators `@client.on(...)`, auto pagination |
+| **`igchat.filters`** | [`igchat/filters.py`](igchat/filters.py) | **Composable Message Filters**: Bitwise operators `&`, `\|`, `~`, `^` (text, command, regex, media, group, sender...) |
+| **`igchat.stealth`** | [`igchat/stealth.py`](igchat/stealth.py) | **Ghost Mode & Humanizer**: Stealth anti-detection, presence suppression (`X-IG-Presence: 0`), Gaussian typing pacing |
+| **`igchat.export`** | [`igchat/export.py`](igchat/export.py) | **Forensic Chat Archiver**: Export threads to JSON, Markdown, or aesthetic Dark Mode HTML matching Instagram Web |
 | **`igchat.core`** | [`igchat/core/`](igchat/core/) | Data models (`InstagramSession`, `MessageEvent`), HTTP pooling, SSRF guard, private file permissions, secret redaction |
-| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Session bootstrap from cookies, secure storage, Web AJAX login with 2FA TOTP (`pyotp`) |
+| **`igchat.auth`** | [`igchat/auth/`](igchat/auth/) | Session bootstrap, **Encrypted Session Vault (PBKDF2 + authenticated stream cipher)**, Web AJAX login with 2FA TOTP |
 | **`igchat.bridge`** | [`igchat/bridge/`](igchat/bridge/) | Subprocess supervisor for Go Bridge over line JSON-RPC, generation-fencing, ReconnectPolicy with backoff |
-| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, send/edit/unsend message, reactions, thread & inbox management, 24h Notes, media rupload |
-| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, bio editor, friendship actions (follow/block), post interactions (like/save/comment), user search |
+| **`igchat.direct`** | [`igchat/direct/`](igchat/direct/) | Direct listener, send/edit/unsend message, reactions, **Themes & Direct Polls**, **Voice waveform (64 peaks)** |
+| **`igchat.social`** | [`igchat/social/`](igchat/social/) | Profile, bio editor, friendship actions, **Unfollowers & Close Friends Analytics (`analytics.py`)**, post interactions |
 | **`igchat.bot`** | [`igchat/bot/`](igchat/bot/) | Comprehensive bot runtime, command router, spam filter, per-user rate limiter, OS signal handler |
 | **`bridge/`** | [`bridge/`](bridge/README.md) | Go bridge source code powered by `instameow`, compiling to `build/igchat-bridge.exe` |
 
@@ -203,6 +207,41 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### 3. Modern Fluent SDK Usage (`IGClient`)
+
+```python
+import asyncio
+from igchat import IGClient, filters
+from igchat.stealth import GhostMode, Humanizer
+
+
+async def main() -> None:
+    # Initialize modern client with Ghost Mode (suppress presence & stealth read receipts)
+    stealth = GhostMode(stealth_read_receipts=True, suppress_presence=True)
+
+    async with IGClient(cookie="sessionid=...; ds_user_id=...;", stealth=stealth) as client:
+        print(f"Connected as @{client.username} (ID: {client.user_id})")
+
+        # 1. Send message with humanized typing pacing
+        humanizer = Humanizer(cpm=320.0)
+        await humanizer.simulate_typing(client.session, "340282366841710300949128134123456789012", 20)
+        await client.send_text("340282366841710300949128134123456789012", "Hello via Fluent IGClient!")
+
+        # 2. Event handler with composable filters
+        @client.on(filters.command("hello") & filters.private)
+        async def on_hello(event: dict) -> None:
+            thread_id = event["data"]["threadId"]
+            await client.send_text(thread_id, "Hello! Powered by igchat-v2 Fluent Client.")
+
+        # 3. Analyze unfollowers (who doesn't follow back)
+        analytics = await client.analyze_followers()
+        print(f"Not following back: {analytics.not_following_back}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
 
 ## 🤖 Running the Included Bot (`main.py`)
@@ -262,7 +301,7 @@ python main.py
 The project adheres to strict production engineering standards:
 
 ```bash
-# 1. Run complete Python test suite (34 unit tests & 54 command runner tests)
+# 1. Run complete Python test suite (50 unit tests & 54 command runner tests)
 pytest tests/ -v
 python tests/test_all_commands.py
 
